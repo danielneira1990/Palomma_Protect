@@ -20,6 +20,13 @@ export function fechaLarga(d: Date): string {
   });
 }
 
+/** Formatea una tasa decimal (0.02) a "2%". */
+export function porcentaje(n: number | null | undefined): string {
+  if (n == null) return "—";
+  const p = Number(n) * 100;
+  return (Number.isInteger(p) ? p.toString() : p.toFixed(2)) + "%";
+}
+
 export const SUCURSALES = [
   "Barranquilla",
   "Bogotá",
@@ -28,4 +35,13 @@ export const SUCURSALES = [
   "Cartagena",
   "Medellín",
   "Pereira",
+] as const;
+
+export const TIERS = [
+  "PRIME",
+  "STANDARD",
+  "SUBPRIME",
+  "HIGH_RISK",
+  "VERY_HIGH_RISK",
+  "NOT_SCORABLE",
 ] as const;

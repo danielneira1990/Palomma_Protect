@@ -105,6 +105,50 @@ bienvenida. También hay botón para enviarlo/reenviarlo manualmente desde el mo
 
 ---
 
+## Módulo de Estudios / Preaprobados
+
+Backoffice `/backoffice/estudios`: radicar un estudio de un arrendatario, registrar
+su resultado (score, tier, cupo, tasa) y decidir la fianza. Mismo patrón que
+Inmobiliarias (lista + modal de gestión).
+
+- **Scoring manual (mockup):** el analista ingresa score/tier/cupo/tasa a mano. Aquí
+  se conectará el motor de scoring real; por ahora es entrada manual. `tasa_sugerida`
+  se guarda como decimal (0.02 = 2%).
+- **Persona:** se reusa por `documento` si ya existe (find-or-create), si no se crea.
+- **Flujo de estado:** `EN_ANALISIS` → decisión (`APROBADO`/`CONDICIONAL`/`NO_VIABLE`).
+  Aprobado/condicional dejan `estado_ingreso = PREAPROBADO` con **30 días de vigencia**;
+  luego "Marcar ingresado" pasa a `INGRESADO` (paso previo al contrato de fianza).
+- **Conexión con el portal:** al decidir un estudio `PREAPROBACION` como aprobado,
+  aparece automáticamente en el tab **Preaprobados** del portal de la inmobiliaria
+  (ese tab ya leía la tabla `estudio`).
+- Sin migración nueva: la tabla `estudio` ya existía en 0001.
+
+---
+
+## Motor de scoring (preaprobados)
+
+Los **preaprobados** vienen del modelo de credit scoring (score 0-1000 → tier
+PRIME/STANDARD/SUBPRIME/…) que corre sobre los datos de pago de Pay (Tinybird).
+
+- **Fuente de verdad = el Python del dev**, no se reimplementa. Vive en
+  `scoring-service/` (copia versionada del proyecto original). Tablas Tinybird:
+  `rentals_invoices` (pagos) + `rentals_customers` (nombre/email/tel). Base
+  `palomma_prod`.
+- **Integración = servicio.** `scoring-service/api.py` (FastAPI) envuelve el
+  pipeline y expone `POST /score/{merchant}` → JSON de scores. La app lo dispara
+  e ingiere; el **token de Tinybird vive solo en `scoring-service/.env`**, la app
+  solo conoce `SCORING_SERVICE_URL`.
+- **Ingesta:** los scores se mapean a la tabla `estudio` (diseñada para esto:
+  `merchant_id`, `score`, `tier`, `cupo_max`, `default_rate`, `risk_flags`,
+  `score_payload`). Los **PRIME** se marcan `PREAPROBADO` → aparecen en el tab
+  Preaprobados del portal. Vínculo por `inmobiliaria.merchant_id` (migración 0005).
+- **Bug corregido** al portar: `data_loader.py` tenía `except A, B:` (sintaxis
+  Python 2) → `except (A, B):`.
+- Nota: se sembraron 25 preaprobados PRIME de `indika` para Nielda como demo
+  interina (script) mientras se conecta el servicio en vivo.
+
+---
+
 ## Deuda técnica conocida
 
 - **Generación del contrato es "mejor esfuerzo":** si la llamada a Google falla,

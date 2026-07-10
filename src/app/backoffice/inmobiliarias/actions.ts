@@ -81,6 +81,7 @@ export async function crearInmobiliaria(formData: FormData) {
     num_contrato_marco,
     razon_social: String(formData.get("razon_social") ?? "").trim(),
     nit: String(formData.get("nit") ?? "").trim(),
+    merchant_id: String(formData.get("merchant_id") ?? "").trim(),
     representante_legal: String(formData.get("representante_legal") ?? "").trim(),
     cc_representante: String(formData.get("cc_representante") ?? "").trim(),
     persona_contacto: String(formData.get("persona_contacto") ?? "").trim(),

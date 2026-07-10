@@ -41,6 +41,13 @@ supabase/.temp
 # Claude Code — settings locales personales (los compartidos van en settings.json)
 .claude/settings.local.json
 
+# Python (scoring-service)
+scoring-service/.venv/
+__pycache__/
+*.pyc
+scoring-service/outputs/
+scoring-service/*.duckdb
+
 # vercel
 .vercel
 

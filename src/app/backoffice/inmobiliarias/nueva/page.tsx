@@ -36,6 +36,20 @@ export default function NuevaInmobiliariaPage() {
         <div className="row2">
           <div className="field">
             <label>
+              Merchant ID (Pay) <span className="star">*</span>
+            </label>
+            <input name="merchant_id" required placeholder="ej: indika" />
+          </div>
+          <div className="field" style={{ display: "flex", alignItems: "flex-end" }}>
+            <p style={{ fontSize: ".8rem", color: "var(--muted)", margin: 0, paddingBottom: 10 }}>
+              Identificador de la inmobiliaria en Pay. Con él se traen sus preaprobados del modelo.
+            </p>
+          </div>
+        </div>
+
+        <div className="row2">
+          <div className="field">
+            <label>
               Representante legal <span className="star">*</span>
             </label>
             <input name="representante_legal" required placeholder="Andrés Alejandro Murillo" />
