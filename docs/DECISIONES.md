@@ -149,6 +149,57 @@ PRIME/STANDARD/SUBPRIME/…) que corre sobre los datos de pago de Pay (Tinybird)
 
 ---
 
+## Radicación / inducción (portal + backoffice)
+
+Del preaprobado al ingreso a fianza. Tabla `radicacion` (migración 0006) con una
+etapa que avanza en un solo sentido; cada etapa habilita **una** acción en el portal.
+
+- **Etapas** (`radicacion.etapa`): `INICIADA` → `EXCEL_SUBIDO` → `PAZ_SALVO` →
+  `EN_VALIDACION` → `APROBADA` → `INGRESADA`. Más `PENDIENTE_INGRESO` (aprobada pero
+  pasó el corte del mes) y `CANCELADA`. Las migraciones 0007–0011 fueron agregando
+  estados al `check` a medida que crecía el flujo (una por estado, para no romper
+  datos existentes). Etiquetas y progreso viven en `src/lib/radicacion.ts`.
+- **Roles — quién hace qué:** la inmobiliaria maneja todo su proceso desde el portal
+  (seleccionar clientes, subir Excel, generar/firmar paz y salvo, **y confirmar el
+  ingreso**). El analista de Palomma **solo da el visto bueno** (`EN_VALIDACION` →
+  `APROBADA`) desde `/backoffice/procesos`. **Palomma nunca ingresa por el cliente:**
+  al aprobar se le manda un correo con botón al portal para que ella misma ingrese.
+- **Validación del Excel:** al subir el archivo completado (`/subir`) se parsea con
+  exceljs y se valida que estén **todos** los clientes de la radicación y el canon;
+  se calcula el **valor asegurado** (suma de cánones). Si falta algo, se devuelven los
+  errores y no avanza.
+- **Paz y salvo** (`src/lib/google/pazSalvo.ts`): se genera desde plantilla de Google
+  Docs con `replaceAllText`, incluyendo el **valor asegurado total**. Se envía por
+  correo **como referencia**; la firma digital "real" llega aparte. La inmobiliaria
+  sube el firmado (`/firmar`) y pasa a `EN_VALIDACION`.
+- **Regla de fecha de ingreso:** `DIA_CORTE_INGRESOS = 20`. Si la inmobiliaria
+  confirma antes del corte, ingresa este mes (`INGRESADA`, estudios `INGRESADO`); si
+  no, queda `PENDIENTE_INGRESO` para el próximo. Cada transición manda un correo con
+  el layout de marca (`src/lib/email/proceso.ts`: paz y salvo, cancelación, aprobado,
+  ingreso).
+- **Cancelar:** `CANCELADA` **libera** los preaprobados (el portal los vuelve a
+  mostrar como disponibles) pero conserva el histórico de la radicación para el
+  backoffice; no se borran filas.
+- **Storage:** cada radicación tiene su **subcarpeta en Drive** (migración 0009,
+  `radicacion.drive_folder_id`, `src/lib/radicacionDrive.ts`) donde quedan el Excel y
+  el paz y salvo firmado; el backoffice enlaza a esos documentos desde su modal.
+- **UI:** el portal (`ProcesoView`) muestra barra de progreso morada + timeline de
+  pasos y **reanuda** el proceso donde iba (no re-muestra "iniciar"); el backoffice
+  (`ProcesosTable`) lista etapa/avance/tiempo con modal de detalle.
+
+---
+
+## Correo — layout de marca compartido
+
+Todos los correos del proceso comparten un solo layout (`src/lib/email/layout.ts`):
+header con logo (embebido por `cid`), cajas de color (`caja()`), listas y CTA. Nació
+porque el primer correo de paz y salvo salió "feo" sin header ni logo. El logo es un
+PNG blanco generado una vez desde el SVG de Palomma (sharp). Correos: contrato marco,
+bienvenida (activación), inducción/radicación, paz y salvo, cancelación, aprobado e
+ingreso.
+
+---
+
 ## Deuda técnica conocida
 
 - **Generación del contrato es "mejor esfuerzo":** si la llamada a Google falla,

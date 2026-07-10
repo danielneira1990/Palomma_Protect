@@ -12,14 +12,24 @@ Correr:
     uv run uvicorn api:app --host 127.0.0.1 --port 8000
 """
 
+import json
 import math
 import os
 
 from fastapi import FastAPI, Header, HTTPException
 
-from scoring.merchant.data_loader import load_data_for_merchant
+from scoring.merchant.data_loader import TinybirdDataLoader, load_data_for_merchant
 from scoring.merchant.score_calculator import CustomerScoreCalculator
 from scoring.merchant.tier_classifier import TierClassifier
+
+
+def _safe_json(v):
+    if isinstance(v, dict):
+        return v
+    try:
+        return json.loads(v) if v else {}
+    except Exception:  # noqa: BLE001
+        return {}
 
 app = FastAPI(title="Palomma Scoring Service", version="0.1.0")
 
@@ -41,6 +51,40 @@ def _clean(v):
 @app.get("/health")
 def health():
     return {"ok": True, "service": "palomma-scoring"}
+
+
+@app.get("/merchant/{merchant_id}")
+def merchant(merchant_id: str, x_service_key: str = Header(default="")):
+    """Datos del merchant (rentals_merchants) para auto-llenar la inmobiliaria."""
+    if SERVICE_KEY and x_service_key != SERVICE_KEY:
+        raise HTTPException(status_code=401, detail="Service key inválida")
+    try:
+        loader = TinybirdDataLoader()
+        m = merchant_id.replace("'", "''")
+        df = loader._query(
+            "SELECT id, displayName, supportEmail, billingInfo, legalRepresentative "
+            f"FROM rentals_merchants WHERE id = '{m}' AND is_deleted = 0 LIMIT 1"
+        )
+        if df.empty:
+            raise HTTPException(status_code=404, detail="Merchant no encontrado")
+        row = df.iloc[0].to_dict()
+        bi = _safe_json(row.get("billingInfo"))
+        lr = _safe_json(row.get("legalRepresentative"))
+        return {
+            "merchant_id": row.get("id"),
+            "razon_social": bi.get("name") or row.get("displayName"),
+            "nit": bi.get("documentNumber"),
+            "ciudad": bi.get("city"),
+            "direccion": bi.get("address"),
+            "telefono": bi.get("phoneNumber"),
+            "email_contacto": row.get("supportEmail"),
+            "representante_legal": lr.get("name"),
+            "cc_representante": lr.get("documentNumber"),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/score/{merchant_id}")

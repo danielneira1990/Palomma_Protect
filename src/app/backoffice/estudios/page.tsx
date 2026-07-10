@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase/server";
 import { EstudiosTable, type EstudioRow } from "./EstudiosTable";
+import { EstudiosTabs } from "@/components/EstudiosTabs";
 
 export default async function EstudiosPage() {
   const supabase = getSupabase();
@@ -38,6 +39,7 @@ export default async function EstudiosPage() {
           </Link>
         </div>
       </div>
+      <EstudiosTabs />
 
       {notConfigured && (
         <div className="banner warn">

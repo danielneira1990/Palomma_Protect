@@ -9,6 +9,7 @@ import {
 import { exportarReglamentosPdf } from "@/lib/google/reglamentos";
 import { enviarCorreo } from "@/lib/email/client";
 import { correoBienvenida } from "@/lib/email/bienvenida";
+import { correoContratoMarco } from "@/lib/email/contratoMarco";
 import { fechaLarga } from "@/lib/format";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -55,6 +56,34 @@ async function mandarBienvenida(supabase: SupabaseClient, inmo: InmoBienvenida) 
     .from("inmobiliaria")
     .update({ bienvenida_enviada_at: new Date().toISOString() })
     .eq("id", inmo.id);
+}
+
+export type MerchantData = {
+  merchant_id: string | null;
+  razon_social: string | null;
+  nit: string | null;
+  ciudad: string | null;
+  direccion: string | null;
+  telefono: string | null;
+  email_contacto: string | null;
+  representante_legal: string | null;
+  cc_representante: string | null;
+};
+
+/** Trae los datos del merchant (desde Pay/rentals_merchants) para auto-llenar. */
+export async function traerMerchant(merchantId: string): Promise<MerchantData> {
+  const id = merchantId.trim();
+  if (!id) throw new Error("Escribe el Merchant ID.");
+  const base = process.env.SCORING_SERVICE_URL ?? "http://127.0.0.1:8000";
+  let res: Response;
+  try {
+    res = await fetch(`${base}/merchant/${encodeURIComponent(id)}`, { cache: "no-store" });
+  } catch {
+    throw new Error(`No se pudo contactar el servicio en ${base}. ¿Está corriendo?`);
+  }
+  if (res.status === 404) throw new Error("No encontré ese merchant en Pay.");
+  if (!res.ok) throw new Error("No se pudo consultar el merchant.");
+  return (await res.json()) as MerchantData;
 }
 
 export async function crearInmobiliaria(formData: FormData) {
@@ -128,10 +157,28 @@ export async function crearInmobiliaria(formData: FormData) {
         tipo_documento: "CONTRATO_MARCO",
         storage_key: doc.pdfLink || doc.pdfId,
       });
+
+      // Correo con el Contrato Marco adjunto, para que lo firmen.
+      if (payload.email_contacto) {
+        const { subject, html, attachments } = correoContratoMarco({
+          razonSocial: payload.razon_social,
+          nombreContacto: payload.persona_contacto,
+          contratoLink: doc.pdfLink,
+        });
+        await enviarCorreo({
+          to: payload.email_contacto,
+          subject,
+          html,
+          attachments: [
+            ...attachments,
+            { filename: "Contrato_Marco_Palomma.pdf", content: doc.pdf },
+          ],
+        });
+      }
     }
   } catch (e) {
     // No bloquea la creación; se registra para revisión.
-    console.error("Error generando el Contrato Marco:", e);
+    console.error("Error generando/enviando el Contrato Marco:", e);
   }
 
   revalidatePath("/backoffice/inmobiliarias");
@@ -202,6 +249,14 @@ export async function subirContratoFirmado(formData: FormData) {
     }
   }
 
+  // Al activar, corre el modelo y carga los preaprobados automáticamente
+  // (mejor esfuerzo; tarda ~30s porque corre el scoring en vivo).
+  try {
+    await actualizarPreaprobados(inmo.id);
+  } catch (e) {
+    console.error("No se pudieron actualizar los preaprobados tras la firma:", e);
+  }
+
   revalidatePath("/backoffice/inmobiliarias");
 }
 
@@ -228,8 +283,8 @@ export async function cambiarEstadoInmobiliaria(id: string, estado: string) {
   revalidatePath("/backoffice/inmobiliarias");
 }
 
-/** Envía (o reenvía) manualmente el correo de bienvenida a la inmobiliaria. */
-export async function enviarBienvenida(id: string) {
+/** Reenvía manualmente el Contrato Marco (para firma) a la inmobiliaria. */
+export async function reenviarContratoMarco(id: string) {
   const supabase = getSupabase();
   if (!supabase) {
     throw new Error("Supabase no está configurado. Revisa .env.local");
@@ -242,9 +297,215 @@ export async function enviarBienvenida(id: string) {
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
+  if (!inmo.email_contacto) {
+    throw new Error("La inmobiliaria no tiene correo de contacto.");
+  }
 
-  await mandarBienvenida(supabase, inmo);
+  const { data: docu } = await supabase
+    .from("documento")
+    .select("storage_key")
+    .eq("tipo_entidad", "INMOBILIARIA")
+    .eq("id_entidad", id)
+    .eq("tipo_documento", "CONTRATO_MARCO")
+    .maybeSingle();
+
+  const { subject, html, attachments } = correoContratoMarco({
+    razonSocial: inmo.razon_social ?? "",
+    nombreContacto: inmo.persona_contacto ?? "",
+    contratoLink: docu?.storage_key ?? undefined,
+  });
+  const res = await enviarCorreo({ to: inmo.email_contacto, subject, html, attachments });
+  if (!res) {
+    throw new Error("El envío de correo no está configurado (revisa SMTP_* en .env.local).");
+  }
+
   revalidatePath("/backoffice/inmobiliarias");
+}
+
+type ScoreRow = {
+  customer_document_number?: string | number;
+  status?: string;
+  tier?: string;
+  confidence?: string;
+  score?: number;
+  max_loan_amount?: number;
+  interest_rate_min?: number;
+  expected_default_rate?: number;
+  risk_flags?: unknown;
+  inactive_customer?: boolean | number | string;
+  name?: string | null;
+  email?: string | null;
+  phoneNumber?: string | null;
+  [k: string]: unknown;
+};
+
+/** Cliente inactivo según el modelo (boolean inactive_customer, en varias formas). */
+function esInactivo(r: ScoreRow): boolean {
+  const v = r.inactive_customer;
+  return v === true || v === 1 || v === "1" || v === "true" || v === "True";
+}
+
+/**
+ * Corre el motor de scoring para la inmobiliaria y refresca sus preaprobados:
+ *   - trae los scores en vivo del servicio (por merchant),
+ *   - toma los PRIME, saltando los que ya están en fianza (INGRESADO),
+ *   - reemplaza los preaprobados vigentes por la corrida nueva.
+ * Devuelve cuántos preaprobados quedaron.
+ */
+export async function actualizarPreaprobados(
+  inmobiliariaId: string,
+): Promise<{ preaprobados: number }> {
+  const supabase = getSupabase();
+  if (!supabase) {
+    throw new Error("Supabase no está configurado. Revisa .env.local");
+  }
+
+  const { data: inmo, error } = await supabase
+    .from("inmobiliaria")
+    .select("id, merchant_id")
+    .eq("id", inmobiliariaId)
+    .single();
+  if (error) throw new Error(error.message);
+  if (!inmo.merchant_id) {
+    throw new Error("La inmobiliaria no tiene merchant_id configurado.");
+  }
+
+  // 1. Correr el motor (servicio Python).
+  const base = process.env.SCORING_SERVICE_URL ?? "http://127.0.0.1:8000";
+  let scores: ScoreRow[] = [];
+  try {
+    const res = await fetch(`${base}/score/${encodeURIComponent(inmo.merchant_id)}`, {
+      method: "POST",
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      throw new Error(`el motor respondió ${res.status}`);
+    }
+    const json = (await res.json()) as { scores?: ScoreRow[] };
+    scores = json.scores ?? [];
+  } catch (e) {
+    throw new Error(
+      `No se pudo contactar el motor de scoring en ${base}. ¿Está corriendo? (${e instanceof Error ? e.message : "error"})`,
+    );
+  }
+
+  const prime = scores.filter(
+    (r) =>
+      r.status === "SCORED" &&
+      r.tier === "PRIME" &&
+      r.confidence === "HIGH" &&
+      !esInactivo(r),
+  );
+
+  // 2. Documentos ya en fianza (INGRESADO): no revivirlos.
+  const { data: existentesRaw } = await supabase
+    .from("estudio")
+    .select("estado_ingreso, persona(documento)")
+    .eq("id_inmobiliaria", inmo.id)
+    .eq("merchant_id", inmo.merchant_id);
+  const existentes = (existentesRaw ?? []) as unknown as {
+    estado_ingreso: string | null;
+    persona: { documento: string | null } | null;
+  }[];
+  const enFianza = new Set(
+    existentes
+      .filter((e) => e.estado_ingreso === "INGRESADO")
+      .map((e) => e.persona?.documento)
+      .filter((d): d is string => !!d),
+  );
+
+  // 3. Reemplazar los preaprobados vigentes (no los ingresados).
+  await supabase
+    .from("estudio")
+    .delete()
+    .eq("id_inmobiliaria", inmo.id)
+    .eq("merchant_id", inmo.merchant_id)
+    .eq("estado_ingreso", "PREAPROBADO");
+
+  const year = new Date().getFullYear();
+  const { count } = await supabase
+    .from("estudio")
+    .select("*", { count: "exact", head: true })
+    .ilike("codigo", `EST-${year}-%`);
+  let seq = count ?? 0;
+
+  const vig = new Date();
+  vig.setDate(vig.getDate() + 30);
+  const vigencia = vig.toISOString().slice(0, 10);
+  const now = new Date().toISOString();
+
+  const estudios: Record<string, unknown>[] = [];
+  for (const r of prime) {
+    const documento = String(r.customer_document_number ?? "").trim();
+    if (!documento || enFianza.has(documento)) continue;
+
+    // persona: find-or-create y actualiza contacto (nombre/email/tel del modelo).
+    const contacto = {
+      nombre: r.name ?? null,
+      email: r.email ?? null,
+      telefono: r.phoneNumber ?? null,
+    };
+    let idPersona: string;
+    const { data: ex } = await supabase
+      .from("persona")
+      .select("id")
+      .eq("documento", documento)
+      .maybeSingle();
+    if (ex) {
+      idPersona = ex.id;
+      await supabase.from("persona").update(contacto).eq("id", idPersona);
+    } else {
+      const { data: n, error: ep } = await supabase
+        .from("persona")
+        .insert({ documento, tipo_documento: "CC", ...contacto })
+        .select("id")
+        .single();
+      if (ep || !n) continue;
+      idPersona = n.id;
+    }
+
+    let flags: unknown = [];
+    if (Array.isArray(r.risk_flags)) flags = r.risk_flags;
+    else if (typeof r.risk_flags === "string") {
+      try {
+        flags = JSON.parse(r.risk_flags);
+      } catch {
+        flags = [];
+      }
+    }
+
+    seq++;
+    estudios.push({
+      codigo: `EST-${year}-${String(seq).padStart(5, "0")}`,
+      tipo_estudio: "PREAPROBACION",
+      id_inmobiliaria: inmo.id,
+      id_persona: idPersona,
+      merchant_id: inmo.merchant_id,
+      score: Math.round(Number(r.score) || 0),
+      tier: r.tier,
+      cupo_max: Math.round(Number(r.max_loan_amount) || 0),
+      tasa_sugerida: (Number(r.interest_rate_min) || 0) / 100,
+      default_rate: Number(r.expected_default_rate) || null,
+      risk_flags: flags,
+      score_payload: r,
+      estado: "APROBADO",
+      decision_fianza: "APROBADO",
+      decision_final: true,
+      fecha_resultado: now,
+      estado_ingreso: "PREAPROBADO",
+      vigencia_hasta: vigencia,
+      fecha_ingreso_estudio: now,
+    });
+  }
+
+  if (estudios.length) {
+    const { error: ee } = await supabase.from("estudio").insert(estudios);
+    if (ee) throw new Error(ee.message);
+  }
+
+  revalidatePath("/backoffice/inmobiliarias");
+  revalidatePath("/backoffice/estudios");
+  return { preaprobados: estudios.length };
 }
 
 /**

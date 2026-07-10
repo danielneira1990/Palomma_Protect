@@ -6,8 +6,9 @@ import { fecha } from "@/lib/format";
 import {
   subirContratoFirmado,
   cambiarEstadoInmobiliaria,
-  enviarBienvenida,
+  reenviarContratoMarco,
   editarContacto,
+  actualizarPreaprobados,
 } from "./actions";
 
 export type InmobiliariaRow = {
@@ -25,6 +26,7 @@ export type InmobiliariaRow = {
   telefono: string | null;
   created_at: string | null;
   bienvenida_enviada_at: string | null;
+  merchant_id: string | null;
   contratoLink: string | null;
   firmadoLink: string | null;
 };
@@ -122,8 +124,25 @@ function GestionModal({ inmo, onClose }: { inmo: InmobiliariaRow; onClose: () =>
     telefono: inmo.telefono ?? "",
   });
   const [draft, setDraft] = useState(contacto);
+  const [busyScore, setBusyScore] = useState(false);
+  const [scoreMsg, setScoreMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const firmado = !!inmo.firmadoLink;
+
+  async function actualizar() {
+    setErr(null);
+    setScoreMsg(null);
+    setBusyScore(true);
+    try {
+      const { preaprobados } = await actualizarPreaprobados(inmo.id);
+      setScoreMsg(`${preaprobados} preaprobados actualizados.`);
+      router.refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Error corriendo el scoring.");
+    } finally {
+      setBusyScore(false);
+    }
+  }
 
   async function guardarContacto() {
     setErr(null);
@@ -144,7 +163,7 @@ function GestionModal({ inmo, onClose }: { inmo: InmobiliariaRow; onClose: () =>
     setErr(null);
     setBusyMail(true);
     try {
-      await enviarBienvenida(inmo.id);
+      await reenviarContratoMarco(inmo.id);
       router.refresh();
       onClose();
     } catch (e) {
@@ -351,17 +370,15 @@ function GestionModal({ inmo, onClose }: { inmo: InmobiliariaRow; onClose: () =>
           </div>
 
           <div className="modal-sec" style={{ marginTop: 20 }}>
-            <h3>Correo de bienvenida</h3>
+            <h3>Contrato marco</h3>
             <div className="docbox">
-              <span className="di">✉️</span>
+              <span className="di">📄</span>
               <div className="dinfo">
-                <div className="dt">Bienvenida a la inmobiliaria</div>
+                <div className="dt">Contrato marco para firma</div>
                 <div className="dd">
-                  {inmo.bienvenida_enviada_at
-                    ? `Enviada el ${fecha(inmo.bienvenida_enviada_at)}`
-                    : contacto.email_contacto
-                      ? `Se enviará a ${contacto.email_contacto}`
-                      : "Sin correo de contacto"}
+                  {contacto.email_contacto
+                    ? `Se envía a ${contacto.email_contacto}`
+                    : "Sin correo de contacto"}
                 </div>
               </div>
               <button
@@ -369,7 +386,27 @@ function GestionModal({ inmo, onClose }: { inmo: InmobiliariaRow; onClose: () =>
                 disabled={busyMail || !contacto.email_contacto || editando}
                 onClick={enviar}
               >
-                {busyMail ? "Enviando…" : inmo.bienvenida_enviada_at ? "Reenviar" : "Enviar"}
+                {busyMail ? "Enviando…" : "Reenviar contrato marco"}
+              </button>
+            </div>
+          </div>
+
+          <div className="modal-sec" style={{ marginTop: 20 }}>
+            <h3>Preaprobados (scoring)</h3>
+            <div className="docbox">
+              <span className="di">📊</span>
+              <div className="dinfo">
+                <div className="dt">Merchant: {inmo.merchant_id || "— sin merchant"}</div>
+                <div className="dd">
+                  {scoreMsg ?? "Corre el modelo y refresca los preaprobados PRIME (~30s)."}
+                </div>
+              </div>
+              <button
+                className="btn btn-outline btn-sm"
+                disabled={busyScore || !inmo.merchant_id}
+                onClick={actualizar}
+              >
+                {busyScore ? "Corriendo…" : "Actualizar preaprobados"}
               </button>
             </div>
           </div>

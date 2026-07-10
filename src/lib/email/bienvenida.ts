@@ -28,7 +28,7 @@ export function correoBienvenida(data: DatosBienvenida): CorreoArmado {
     "Solicitar estudios de nuevos arrendatarios.",
     "Cargar inducciones de contratos que ya administran.",
     "Ingresar contratos a fianza y descargar sus certificados.",
-    "Reportar novedades y siniestros.",
+    "Reportar avisos y registrar pagos de obligaciones.",
     "Ver el detalle mensual de su facturación.",
   ];
 
@@ -59,9 +59,9 @@ export function correoBienvenida(data: DatosBienvenida): CorreoArmado {
         <tr><td style="padding:20px 32px 0">
           <div style="background:#F7F4FF;border:1px solid #E6DCFB;border-radius:12px;padding:18px 20px">
             <div style="font-size:13px;font-weight:700;color:#4012AB;margin-bottom:10px">Empiecen a operar</div>
-            <p style="margin:0 0 6px;font-size:13.5px;color:#18182A">Ingresen al portal e inicien sesión con Google usando <b>${data.emailContacto}</b>. Su rol es <b>Admin</b>, con acceso completo al portafolio de ${data.razonSocial}.</p>
+            <p style="margin:0 0 6px;font-size:13.5px;color:#18182A">En su <b>portal administrativo de Palomma Pay</b> verán ahora habilitada una nueva opción: <b>Protect</b>. Desde ahí gestionan toda su operación de fianza — preaprobados, radicación, contratos, avisos, pagos de obligaciones y facturación.</p>
             <div style="margin-top:16px">
-              <a href="${data.portalUrl}" style="display:inline-block;background:#4012AB;color:#fff;text-decoration:none;font-weight:700;font-size:13.5px;padding:11px 22px;border-radius:8px">Entrar al portal →</a>
+              <a href="${data.portalUrl}" style="display:inline-block;background:#4012AB;color:#fff;text-decoration:none;font-weight:700;font-size:13.5px;padding:11px 22px;border-radius:8px">Ir a Palomma Pay →</a>
             </div>
           </div>
         </td></tr>

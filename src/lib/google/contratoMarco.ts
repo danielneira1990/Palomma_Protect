@@ -17,6 +17,7 @@ export type ContratoMarcoGenerado = {
   docId: string; // Google Doc editable
   pdfId: string;
   pdfLink: string;
+  pdf: Buffer; // el PDF exportado, para adjuntarlo por correo
 };
 
 /**
@@ -107,6 +108,7 @@ export async function generarContratoMarco(
     docId,
     pdfId: pdf.data.id!,
     pdfLink: pdf.data.webViewLink ?? "",
+    pdf: pdfBuffer,
   };
 }
 
