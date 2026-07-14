@@ -53,7 +53,9 @@ function normalizar(t: string): string {
 /** Parsea la evidencia del "Certificado de firma" de AUCO desde el texto del PDF. */
 export function parsearEvidenciaAuco(texto: string): EvidenciaAuco {
   const t = normalizar(texto);
-  const esCertificado = /Certificado de firma/i.test(t) || /auco\.ai\/verify/i.test(t);
+  // Varias señales por si el extractor de PDF altera el espaciado del título.
+  const esCertificado =
+    /auco/i.test(t) || /certificado de firma/i.test(t) || /hash de firmante/i.test(t);
   const docId = t.match(/N[úu]mero de documento:\s*([A-Z0-9]{6,})/i)?.[1] ?? null;
   const hash = t.match(/Hash del documento:\s*([a-f0-9]{32,})/i)?.[1] ?? null;
 

@@ -244,15 +244,26 @@ export function ProcesoView({
           <div className="banner warn" style={{ marginBottom: 14 }}>
             <span>⚠️</span>
             <div>
-              <b>No pudimos continuar. Corrige estos puntos en el mismo archivo y vuelve a subirlo:</b>
+              <b>No pudimos continuar. Revisa:</b>
               <ul style={{ margin: "6px 0 0 16px" }}>
                 {errores.map((e, i) => (
                   <li key={i}>{e}</li>
                 ))}
               </ul>
               <div style={{ marginTop: 8, fontSize: ".82rem", color: "var(--muted)" }}>
-                Recuerda: cada <b>inquilino</b> va una sola vez; los <b>codeudores sí pueden
-                repetirse</b>. Si necesitas ayuda, escríbenos y te acompañamos.
+                {radicacion.etapa === "INICIADA" && (
+                  <>
+                    Corrige estos puntos en el mismo Excel y vuelve a subirlo. Recuerda: cada{" "}
+                    <b>inquilino</b> va una sola vez; los <b>codeudores sí pueden repetirse</b>.{" "}
+                  </>
+                )}
+                {radicacion.etapa === "PAZ_SALVO" && (
+                  <>
+                    Sube el PDF <b>tal como lo devuelve AUCO</b>, firmado por el{" "}
+                    <b>representante legal</b> con el método fuerte (OTP + foto + documento).{" "}
+                  </>
+                )}
+                Si necesitas ayuda, escríbenos y te acompañamos.
               </div>
             </div>
           </div>
