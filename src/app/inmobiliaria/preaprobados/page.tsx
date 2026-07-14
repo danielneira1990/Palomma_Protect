@@ -1,7 +1,10 @@
 import { getSupabase } from "@/lib/supabase/server";
-import { TASA_FIANZA_PCT } from "@/lib/radicacion";
+import { tasaFianzaInmo, fmtTasaPct, TASA_FIANZA_DEFAULT } from "@/lib/radicacion";
 import { PreaprobadosView, type PreaprobadoRow } from "./PreaprobadosView";
 import { ProcesoView } from "./ProcesoView";
+
+type InmoTasa = { tasa_canon: number | null; sucursal: string | null } | null;
+const tasaDe = (inmo: InmoTasa) => (inmo ? tasaFianzaInmo(inmo) : TASA_FIANZA_DEFAULT);
 
 export default async function PreaprobadosPage() {
   const supabase = getSupabase();
@@ -24,7 +27,9 @@ export default async function PreaprobadosPage() {
   // ¿Hay un proceso de inducción activo? (etapa != INGRESADA)
   const { data: rad } = await supabase
     .from("radicacion")
-    .select("id, codigo, etapa, num_clientes, valor_asegurado, created_at")
+    .select(
+      "id, codigo, etapa, num_clientes, valor_asegurado, created_at, inmobiliaria(tasa_canon, sucursal)",
+    )
     .not("etapa", "in", "(INGRESADA,CANCELADA)")
     .order("created_at", { ascending: false })
     .limit(1)
@@ -36,7 +41,8 @@ export default async function PreaprobadosPage() {
       .select("id")
       .eq("id_radicacion", rad.id);
     const estudioIds = (est ?? []).map((e) => e.id);
-    return <ProcesoView radicacion={rad} estudioIds={estudioIds} />;
+    const tasaFianza = tasaDe((rad as unknown as { inmobiliaria: InmoTasa }).inmobiliaria);
+    return <ProcesoView radicacion={rad} estudioIds={estudioIds} tasaFianza={tasaFianza} />;
   }
 
   // Sin proceso activo → selección de preaprobados: los que no están en un
@@ -46,7 +52,9 @@ export default async function PreaprobadosPage() {
 
   let q = supabase
     .from("estudio")
-    .select("id, created_at, persona(nombre, documento, email, telefono)")
+    .select(
+      "id, created_at, persona(nombre, documento, email, telefono), inmobiliaria(tasa_canon, sucursal)",
+    )
     .eq("tipo_estudio", "PREAPROBACION")
     .eq("estado_ingreso", "PREAPROBADO");
   q =
@@ -75,5 +83,8 @@ export default async function PreaprobadosPage() {
     .eq("tipo_estudio", "PREAPROBACION")
     .eq("estado_ingreso", "INGRESADO");
 
-  return <PreaprobadosView rows={rows} afianzados={count ?? 0} tasaPct={TASA_FIANZA_PCT} />;
+  const inmoTasa =
+    (data?.[0] as unknown as { inmobiliaria: InmoTasa } | undefined)?.inmobiliaria ?? null;
+  const tasaPct = fmtTasaPct(tasaDe(inmoTasa));
+  return <PreaprobadosView rows={rows} afianzados={count ?? 0} tasaPct={tasaPct} />;
 }

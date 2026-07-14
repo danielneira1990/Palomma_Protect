@@ -20,7 +20,7 @@ export async function afianzarSeleccionados(ids: string[]) {
 
   const { error } = await supabase
     .from("estudio")
-    .update({ estado_ingreso: "INGRESADO" })
+    .update({ estado_ingreso: "INGRESADO", fecha_ingreso: new Date().toISOString() })
     .in("id", ids);
   if (error) throw new Error(error.message);
 
@@ -91,7 +91,10 @@ export async function ingresarRadicacion(id: string) {
   const esteMes = ingresaEsteMes();
   const now = new Date().toISOString();
   if (esteMes) {
-    await supabase.from("estudio").update({ estado_ingreso: "INGRESADO" }).eq("id_radicacion", id);
+    await supabase
+      .from("estudio")
+      .update({ estado_ingreso: "INGRESADO", fecha_ingreso: now })
+      .eq("id_radicacion", id);
     await supabase.from("radicacion").update({ etapa: "INGRESADA", updated_at: now }).eq("id", id);
   } else {
     await supabase

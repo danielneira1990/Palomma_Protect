@@ -12,11 +12,14 @@ export default async function EstudiosPage() {
   if (!supabase) {
     notConfigured = true;
   } else {
+    // Solo estudios "normales" (manuales). Los preaprobados del modelo (que traen
+    // merchant_id) se manejan en la pestaña Procesos de inducción.
     const { data, error: e } = await supabase
       .from("estudio")
       .select(
-        "id, codigo, tipo_estudio, score, tier, cupo_max, tasa_sugerida, estado, decision_fianza, estado_ingreso, vigencia_hasta, created_at, persona(nombre, documento, email, telefono), inmobiliaria(razon_social, codigo)",
+        "id, codigo, tipo_estudio, score, tier, estado, decision_fianza, estado_ingreso, vigencia_hasta, fecha_ingreso, created_at, persona(nombre, documento, email, telefono), inmobiliaria(razon_social, codigo)",
       )
+      .is("merchant_id", null)
       .order("created_at", { ascending: false });
 
     if (e) error = e.message;

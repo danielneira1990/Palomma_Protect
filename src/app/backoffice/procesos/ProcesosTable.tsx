@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { money, fecha } from "@/lib/format";
 import { PASOS, etapaIndex, etapaProgreso, tiempoDesde } from "@/lib/radicacion";
 
@@ -11,6 +12,7 @@ export type ProcesoRow = {
   num_clientes: number | null;
   valor_asegurado: number | null;
   created_at: string | null;
+  updated_at: string | null;
   excel_key: string | null;
   paz_salvo_key: string | null;
   firma_doc_id: string | null;
@@ -28,7 +30,13 @@ export type ProcesoRow = {
   } | null;
 };
 
-export type Cliente = { nombre: string | null; documento: string | null };
+const TERMINALES = ["INGRESADA", "PENDIENTE_INGRESO", "CANCELADA"];
+
+/** En curso → contador "hace X"; finalizada → fecha de finalización. */
+function tiempoOFin(etapa: string | null, created: string | null, fin: string | null): string {
+  if (TERMINALES.includes((etapa ?? "").toUpperCase())) return `Finalizó ${fecha(fin)}`;
+  return tiempoDesde(created);
+}
 
 function etapaPill(etapa: string | null) {
   const e = (etapa ?? "").toUpperCase();
@@ -40,18 +48,7 @@ function etapaPill(etapa: string | null) {
   return "pill pill-brand"; // INICIADA
 }
 
-function titulo(n: string | null): string {
-  if (!n) return "—";
-  return n.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase());
-}
-
-export function ProcesosTable({
-  rows,
-  clientes,
-}: {
-  rows: ProcesoRow[];
-  clientes: Record<string, Cliente[]>;
-}) {
+export function ProcesosTable({ rows }: { rows: ProcesoRow[] }) {
   const [sel, setSel] = useState<ProcesoRow | null>(null);
   const activos = rows.filter((r) => r.etapa !== "INGRESADA" && r.etapa !== "CANCELADA").length;
   const atascados = rows.filter((r) => r.ultimo_error).length;
@@ -113,7 +110,7 @@ export function ProcesosTable({
                     <td className="mono">
                       {r.valor_asegurado != null ? money(r.valor_asegurado) : "—"}
                     </td>
-                    <td>{tiempoDesde(r.created_at)}</td>
+                    <td>{tiempoOFin(r.etapa, r.created_at, r.updated_at)}</td>
                   </tr>
                 );
               })}
@@ -250,37 +247,18 @@ export function ProcesosTable({
                 <dd>{sel.num_clientes ?? "—"}</dd>
                 <dt>Iniciado</dt>
                 <dd>
-                  {fecha(sel.created_at)} · {tiempoDesde(sel.created_at)}
+                  {fecha(sel.created_at)} · {tiempoOFin(sel.etapa, sel.created_at, sel.updated_at)}
                 </dd>
               </dl>
 
               <div className="modal-sec">
-                <h3>Clientes de la radicación</h3>
-                <div className="tscroll" style={{ maxHeight: 240, overflowY: "auto" }}>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Cliente</th>
-                        <th>Cédula</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(clientes[sel.id] ?? []).map((c, i) => (
-                        <tr key={i}>
-                          <td className="strong">{titulo(c.nombre)}</td>
-                          <td className="mono">{c.documento ?? "—"}</td>
-                        </tr>
-                      ))}
-                      {(clientes[sel.id] ?? []).length === 0 && (
-                        <tr>
-                          <td colSpan={2} className="msg" style={{ padding: 16 }}>
-                            Sin clientes registrados.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <h3>Clientes</h3>
+                <Link
+                  href={`/backoffice/procesos/${sel.id}`}
+                  className="btn btn-outline btn-sm"
+                >
+                  👥 Ver clientes ({sel.num_clientes ?? 0})
+                </Link>
               </div>
 
               <div className="modal-sec" style={{ marginTop: 18 }}>

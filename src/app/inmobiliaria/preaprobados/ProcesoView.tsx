@@ -9,8 +9,7 @@ import {
   tiempoDesde,
   DIA_CORTE_INGRESOS,
   AMPARO_INTEGRAL_CORTESIA,
-  TASA_FIANZA,
-  TASA_FIANZA_PCT,
+  fmtTasaPct,
 } from "@/lib/radicacion";
 import { money } from "@/lib/format";
 import { cancelarRadicacion, ingresarRadicacion } from "./actions";
@@ -27,9 +26,11 @@ type Rad = {
 export function ProcesoView({
   radicacion,
   estudioIds,
+  tasaFianza,
 }: {
   radicacion: Rad;
   estudioIds: string[];
+  tasaFianza: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -42,7 +43,7 @@ export function ProcesoView({
   const nContratos = radicacion.num_clientes ?? 0;
   const valorAsegurado = radicacion.valor_asegurado ?? 0;
   const amparoTotal = AMPARO_INTEGRAL_CORTESIA * nContratos;
-  const costoFianzaMes = Math.round(valorAsegurado * TASA_FIANZA);
+  const costoFianzaMes = Math.round(valorAsegurado * tasaFianza);
 
   async function descargarExcel() {
     setBusy(true);
@@ -368,7 +369,7 @@ export function ProcesoView({
               {[
                 ["Contratos a afianzar", `${nContratos}`],
                 ["Valor asegurado total", money(valorAsegurado)],
-                ["Tasa de fianza", TASA_FIANZA_PCT],
+                ["Tasa de fianza", fmtTasaPct(tasaFianza)],
                 ["Costo de fianza estimado", `${money(costoFianzaMes)} / mes`],
               ].map(([k, v]) => (
                 <div

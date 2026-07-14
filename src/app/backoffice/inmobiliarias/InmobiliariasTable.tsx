@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { fecha } from "@/lib/format";
+import { fmtTasaPct, tasaFianzaInmo } from "@/lib/radicacion";
 import {
   subirContratoFirmado,
   cambiarEstadoInmobiliaria,
   reenviarContratoMarco,
   editarContacto,
+  editarTasaFianza,
   actualizarPreaprobados,
 } from "./actions";
 
@@ -18,6 +20,7 @@ export type InmobiliariaRow = {
   nit: string | null;
   sucursal: string | null;
   ciudad: string | null;
+  tasa_canon: number | null;
   estado: string | null;
   sagrilaft_estado: string | null;
   num_contrato_marco: string | null;
@@ -126,8 +129,30 @@ function GestionModal({ inmo, onClose }: { inmo: InmobiliariaRow; onClose: () =>
   const [draft, setDraft] = useState(contacto);
   const [busyScore, setBusyScore] = useState(false);
   const [scoreMsg, setScoreMsg] = useState<string | null>(null);
+  const [tasaActual, setTasaActual] = useState(inmo.tasa_canon);
+  const [editTasa, setEditTasa] = useState(false);
+  const [tasaDraft, setTasaDraft] = useState("");
+  const [busyTasa, setBusyTasa] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const firmado = !!inmo.firmadoLink;
+
+  const tasaEfectiva = tasaFianzaInmo({ tasa_canon: tasaActual, sucursal: inmo.sucursal });
+
+  async function guardarTasa() {
+    setErr(null);
+    setBusyTasa(true);
+    try {
+      await editarTasaFianza(inmo.id, tasaDraft);
+      const pct = Number(tasaDraft.replace(",", ".").replace(/[^\d.]/g, ""));
+      setTasaActual(pct / 100);
+      setEditTasa(false);
+      router.refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Error guardando la tasa.");
+    } finally {
+      setBusyTasa(false);
+    }
+  }
 
   async function actualizar() {
     setErr(null);
@@ -409,6 +434,65 @@ function GestionModal({ inmo, onClose }: { inmo: InmobiliariaRow; onClose: () =>
                 {busyScore ? "Corriendo…" : "Actualizar preaprobados"}
               </button>
             </div>
+          </div>
+
+          <div className="modal-sec" style={{ marginTop: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
+              <h3 style={{ margin: 0 }}>Tasa de fianza</h3>
+              {!editTasa && (
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ marginLeft: "auto" }}
+                  onClick={() => {
+                    setTasaDraft(
+                      (tasaEfectiva * 100).toLocaleString("es-CO", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }),
+                    );
+                    setEditTasa(true);
+                  }}
+                >
+                  Editar
+                </button>
+              )}
+            </div>
+            {editTasa ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Tasa sobre el canon (%)</label>
+                  <input
+                    value={tasaDraft}
+                    onChange={(e) => setTasaDraft(e.target.value)}
+                    placeholder="ej: 1,35"
+                    style={{ width: 120 }}
+                  />
+                </div>
+                <button className="btn btn-purple btn-sm" disabled={busyTasa} onClick={guardarTasa}>
+                  {busyTasa ? "Guardando…" : "Guardar"}
+                </button>
+                <button
+                  className="btn btn-outline btn-sm"
+                  disabled={busyTasa}
+                  onClick={() => setEditTasa(false)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <div className="docbox">
+                <span className="di">🛡️</span>
+                <div className="dinfo">
+                  <div className="dt">{fmtTasaPct(tasaEfectiva)} sobre el canon</div>
+                  <div className="dd">
+                    {tasaActual == null
+                      ? `Default de la sucursal (${inmo.sucursal ?? "—"})`
+                      : "Configurada para esta inmobiliaria"}
+                    . Es la que ven sus preaprobados.
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div

@@ -11,6 +11,7 @@ import { enviarCorreo, destinatarios } from "@/lib/email/client";
 import { correoBienvenida } from "@/lib/email/bienvenida";
 import { correoContratoMarco } from "@/lib/email/contratoMarco";
 import { fechaLarga } from "@/lib/format";
+import { tasaSucursal } from "@/lib/radicacion";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -106,6 +107,7 @@ export async function crearInmobiliaria(formData: FormData) {
   const codigo = `IMB-${year}-${seq}`;
   const num_contrato_marco = `CMF-${year}-${seq}`;
 
+  const sucursal = String(formData.get("sucursal") ?? "").trim();
   const payload = {
     codigo,
     num_contrato_marco,
@@ -119,10 +121,12 @@ export async function crearInmobiliaria(formData: FormData) {
     persona_contacto: String(formData.get("persona_contacto") ?? "").trim(),
     email_contacto: String(formData.get("email_contacto") ?? "").trim(),
     telefono: String(formData.get("telefono") ?? "").trim(),
-    sucursal: String(formData.get("sucursal") ?? "").trim(),
+    sucursal,
     ciudad: String(formData.get("ciudad") ?? "").trim(),
     direccion: String(formData.get("direccion") ?? "").trim(),
     modalidad_pago: String(formData.get("modalidad_pago") ?? "Facturación").trim(),
+    // Tasa de fianza por defecto según la sucursal (editable luego en el modal).
+    tasa_canon: tasaSucursal(sucursal),
     estado: "PENDIENTE",
   };
 
@@ -537,6 +541,31 @@ export async function editarContacto(
       email_contacto: datos.email_contacto.trim(),
       telefono: datos.telefono.trim(),
     })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/backoffice/inmobiliarias");
+}
+
+/**
+ * Actualiza la tasa de fianza (sobre el canon) que se le ofrece a los preaprobados
+ * de la inmobiliaria. Recibe un porcentaje (ej. "1,35") y lo guarda como decimal.
+ */
+export async function editarTasaFianza(id: string, tasaInput: string) {
+  const supabase = getSupabase();
+  if (!supabase) {
+    throw new Error("Supabase no está configurado. Revisa .env.local");
+  }
+  if (!id) throw new Error("Falta la inmobiliaria.");
+
+  const pct = Number(String(tasaInput).replace(",", ".").replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+    throw new Error("Tasa inválida. Escribe un porcentaje, por ejemplo: 1,35");
+  }
+
+  const { error } = await supabase
+    .from("inmobiliaria")
+    .update({ tasa_canon: pct / 100 })
     .eq("id", id);
   if (error) throw new Error(error.message);
 

@@ -1,11 +1,10 @@
 import { getSupabase } from "@/lib/supabase/server";
 import { EstudiosTabs } from "@/components/EstudiosTabs";
-import { ProcesosTable, type ProcesoRow, type Cliente } from "./ProcesosTable";
+import { ProcesosTable, type ProcesoRow } from "./ProcesosTable";
 
 export default async function ProcesosPage() {
   const supabase = getSupabase();
   let rows: ProcesoRow[] = [];
-  const clientes: Record<string, Cliente[]> = {};
   let notConfigured = false;
 
   if (!supabase) {
@@ -14,28 +13,10 @@ export default async function ProcesosPage() {
     const { data } = await supabase
       .from("radicacion")
       .select(
-        "id, codigo, etapa, num_clientes, valor_asegurado, created_at, excel_key, paz_salvo_key, firma_doc_id, firma_email, firma_metodo, firma_at, ultimo_error, ultimo_error_at, inmobiliaria(razon_social, codigo, persona_contacto, email_contacto, telefono)",
+        "id, codigo, etapa, num_clientes, valor_asegurado, created_at, updated_at, excel_key, paz_salvo_key, firma_doc_id, firma_email, firma_metodo, firma_at, ultimo_error, ultimo_error_at, inmobiliaria(razon_social, codigo, persona_contacto, email_contacto, telefono)",
       )
       .order("created_at", { ascending: false });
     rows = (data ?? []) as unknown as ProcesoRow[];
-
-    const ids = rows.map((r) => r.id);
-    if (ids.length) {
-      const { data: est } = await supabase
-        .from("estudio")
-        .select("id_radicacion, persona(nombre, documento)")
-        .in("id_radicacion", ids);
-      for (const e of (est ?? []) as unknown as {
-        id_radicacion: string | null;
-        persona: { nombre: string | null; documento: string | null } | null;
-      }[]) {
-        if (!e.id_radicacion) continue;
-        (clientes[e.id_radicacion] ??= []).push({
-          nombre: e.persona?.nombre ?? null,
-          documento: e.persona?.documento ?? null,
-        });
-      }
-    }
   }
 
   return (
@@ -63,7 +44,7 @@ export default async function ProcesosPage() {
           </div>
         </div>
       ) : (
-        <ProcesosTable rows={rows} clientes={clientes} />
+        <ProcesosTable rows={rows} />
       )}
     </>
   );

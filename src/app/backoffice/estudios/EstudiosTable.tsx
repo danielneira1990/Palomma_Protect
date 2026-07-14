@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { fecha, money, porcentaje } from "@/lib/format";
+import { fecha } from "@/lib/format";
 import { decidirEstudio, marcarIngresado } from "./actions";
 
 export type EstudioRow = {
@@ -11,12 +11,11 @@ export type EstudioRow = {
   tipo_estudio: string | null;
   score: number | null;
   tier: string | null;
-  cupo_max: number | null;
-  tasa_sugerida: number | null;
   estado: string | null;
   decision_fianza: string | null;
   estado_ingreso: string | null;
   vigencia_hasta: string | null;
+  fecha_ingreso: string | null;
   created_at: string | null;
   persona: {
     nombre: string | null;
@@ -76,7 +75,6 @@ export function EstudiosTable({
                     <th>Inmobiliaria</th>
                     <th>Tier</th>
                     <th>Score</th>
-                    <th>Cupo</th>
                     <th>Estado</th>
                     <th>Ingreso</th>
                     <th>Creado</th>
@@ -92,7 +90,6 @@ export function EstudiosTable({
                         <td>{r.inmobiliaria?.razon_social ?? "—"}</td>
                         <td>{r.tier ? <span className="pill pill-brand">{r.tier}</span> : "—"}</td>
                         <td className="mono strong">{r.score ?? "—"}</td>
-                        <td className="mono">{r.cupo_max != null ? money(r.cupo_max) : "—"}</td>
                         <td>
                           <span className={estadoPill(r.estado)}>{r.estado}</span>
                         </td>
@@ -187,14 +184,16 @@ function GestionModal({ estudio, onClose }: { estudio: EstudioRow; onClose: () =
             <dd>{estudio.score ?? "—"}</dd>
             <dt>Tier</dt>
             <dd>{estudio.tier ? <span className="pill pill-brand">{estudio.tier}</span> : "—"}</dd>
-            <dt>Cupo máximo</dt>
-            <dd>{estudio.cupo_max != null ? money(estudio.cupo_max) : "—"}</dd>
-            <dt>Tasa sugerida</dt>
-            <dd>{porcentaje(estudio.tasa_sugerida)}</dd>
             <dt>Vigencia</dt>
             <dd>{fecha(estudio.vigencia_hasta)}</dd>
             <dt>Ingreso</dt>
             <dd>{ingreso ?? "—"}</dd>
+            {ingreso === "INGRESADO" && (
+              <>
+                <dt>Fecha de ingreso</dt>
+                <dd>{fecha(estudio.fecha_ingreso)}</dd>
+              </>
+            )}
           </dl>
 
           <div className="modal-sec">

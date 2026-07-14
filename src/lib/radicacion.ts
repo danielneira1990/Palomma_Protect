@@ -47,19 +47,41 @@ export const DIA_CORTE_INGRESOS = 20;
 export const AMPARO_INTEGRAL_CORTESIA = 1_000_000;
 
 /**
- * Tasa de fianza a la que ingresan los contratos (sobre el canon). Es la MISMA
- * tasa que se le muestra al cliente en sus preaprobados ("Tasa preferencial").
- * Fuente única: alimenta la KPI del portal y el resumen del ingreso.
- * MVP: constante; debería venir de la negociación por inmobiliaria.
+ * Tasa de fianza (sobre el canon) por sucursal, como default. La tasa real vive
+ * en inmobiliaria.tasa_canon (editable en su modal); si está vacía, se usa el
+ * default de la sucursal, y si la sucursal no está mapeada, TASA_FIANZA_DEFAULT.
+ * Es la MISMA tasa que ve el cliente en sus preaprobados ("Tasa preferencial").
  */
-export const TASA_FIANZA = 0.0135;
+export const SUCURSAL_TASA: Record<string, number> = {
+  "Medellín": 0.0135,
+  "Bogotá": 0.0204,
+};
 
-/** La tasa de fianza formateada para mostrar (ej. "1,35%"). */
-export const TASA_FIANZA_PCT =
-  (TASA_FIANZA * 100).toLocaleString("es-CO", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }) + "%";
+/** Default para las sucursales no mapeadas (Barranquilla, Cali, etc.). */
+export const TASA_FIANZA_DEFAULT = 0.0166;
+
+/** Tasa por defecto de una sucursal. */
+export function tasaSucursal(sucursal: string | null | undefined): number {
+  return SUCURSAL_TASA[(sucursal ?? "").trim()] ?? TASA_FIANZA_DEFAULT;
+}
+
+/** Tasa de fianza efectiva de una inmobiliaria: la suya, o el default de su sucursal. */
+export function tasaFianzaInmo(inmo: {
+  tasa_canon: number | null;
+  sucursal: string | null;
+}): number {
+  return inmo.tasa_canon ?? tasaSucursal(inmo.sucursal);
+}
+
+/** Formatea una tasa decimal como porcentaje colombiano (0.0135 → "1,35%"). */
+export function fmtTasaPct(tasa: number): string {
+  return (
+    (tasa * 100).toLocaleString("es-CO", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) + "%"
+  );
+}
 
 export function ingresaEsteMes(hoy: Date = new Date()): boolean {
   return hoy.getDate() <= DIA_CORTE_INGRESOS;

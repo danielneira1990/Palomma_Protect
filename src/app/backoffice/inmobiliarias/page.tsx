@@ -14,7 +14,7 @@ export default async function InmobiliariasPage() {
     const { data, error: e } = await supabase
       .from("inmobiliaria")
       .select(
-        "id, codigo, razon_social, nit, sucursal, ciudad, estado, sagrilaft_estado, num_contrato_marco, persona_contacto, email_contacto, telefono, created_at, bienvenida_enviada_at, merchant_id",
+        "id, codigo, razon_social, nit, sucursal, ciudad, tasa_canon, estado, sagrilaft_estado, num_contrato_marco, persona_contacto, email_contacto, telefono, created_at, bienvenida_enviada_at, merchant_id",
       )
       .order("created_at", { ascending: false });
 

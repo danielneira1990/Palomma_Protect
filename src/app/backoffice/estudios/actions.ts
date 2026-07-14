@@ -118,7 +118,7 @@ export async function marcarIngresado(id: string) {
 
   const { error } = await supabase
     .from("estudio")
-    .update({ estado_ingreso: "INGRESADO" })
+    .update({ estado_ingreso: "INGRESADO", fecha_ingreso: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
 
