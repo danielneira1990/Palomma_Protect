@@ -58,19 +58,19 @@ export function correoIngreso(
       )
     : caja(
         "azul",
-        "🗓️ Ingresan el próximo mes",
-        `Recibimos y aprobamos tu radicación de <b>${data.numContratos} contrato(s)</b>. Como ya pasó el corte del mes, quedan <b>pendientes</b> y se afianzan automáticamente el próximo mes. No tienes que hacer nada más.`,
+        "🗓️ Preingresados — disponibles el próximo mes",
+        `Tus <b>${data.numContratos} contrato(s)</b> quedaron <b>preingresados</b>. Como ya pasó el corte del mes, estarán <b>disponibles a partir del primer día del mes siguiente</b>. No tienes que hacer nada más.`,
       );
   return {
     subject: esteMes
       ? "¡Tus contratos quedaron afianzados! · Palomma Protect"
-      : "Tus contratos ingresan el próximo mes · Palomma Protect",
+      : "Tus contratos quedaron preingresados · Palomma Protect",
     html: layoutCorreo({
       etiqueta: "Protect · Fianza",
       titulo: esteMes ? `¡Felicitaciones, ${nombre}! 🎉` : `¡Todo listo, ${nombre}! 🗓️`,
       intro: esteMes
         ? "Tu cartera quedó protegida con Palomma Protect."
-        : "Tu radicación quedó aprobada y en camino.",
+        : "Tus contratos quedaron preingresados; estarán disponibles desde el próximo mes.",
       contenido,
     }),
     attachments: [logoAttachment()],

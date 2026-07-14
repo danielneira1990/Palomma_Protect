@@ -407,7 +407,8 @@ export function ProcesoView({
 
             <p style={{ fontSize: ".9rem", marginBottom: 14 }}>
               Al ingresar, tus contratos entran a fianza. Si ya pasó el corte del mes (día{" "}
-              {DIA_CORTE_INGRESOS}), quedan pendientes para el ingreso del próximo mes.
+              {DIA_CORTE_INGRESOS}), quedan <b>preingresados</b> y estarán disponibles a partir del{" "}
+              <b>primer día del mes siguiente</b>.
             </p>
             <button className="btn btn-purple" disabled={busy} onClick={ingresar}>
               {busy ? "Procesando…" : "✅ Ingresar a fianza"}
@@ -419,8 +420,9 @@ export function ProcesoView({
           <div className="banner info" style={{ marginBottom: 0 }}>
             <span>🗓️</span>
             <div>
-              Firmado y aprobado. Como ya pasó el corte del mes, tus contratos{" "}
-              <b>ingresan a fianza el próximo mes</b>. No tienes que hacer nada más.
+              ¡Listo! Tus contratos quedaron <b>preingresados</b>. Como ya pasó el corte del mes,
+              estarán disponibles a partir del <b>primer día del mes siguiente</b>. No tienes que
+              hacer nada más.
             </div>
           </div>
         )}
