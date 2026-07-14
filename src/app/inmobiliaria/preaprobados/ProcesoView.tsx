@@ -10,6 +10,7 @@ import {
   DIA_CORTE_INGRESOS,
   AMPARO_INTEGRAL_CORTESIA,
   TASA_FIANZA,
+  TASA_FIANZA_PCT,
 } from "@/lib/radicacion";
 import { money } from "@/lib/format";
 import { cancelarRadicacion, ingresarRadicacion } from "./actions";
@@ -367,7 +368,7 @@ export function ProcesoView({
               {[
                 ["Contratos a afianzar", `${nContratos}`],
                 ["Valor asegurado total", money(valorAsegurado)],
-                ["Tasa de fianza", `${(TASA_FIANZA * 100).toLocaleString("es-CO")}% del canon`],
+                ["Tasa de fianza", `${TASA_FIANZA_PCT} del canon (la misma de tus preaprobados)`],
                 ["Costo de fianza estimado", `${money(costoFianzaMes)} / mes`],
               ].map(([k, v]) => (
                 <div

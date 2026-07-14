@@ -47,11 +47,19 @@ export const DIA_CORTE_INGRESOS = 20;
 export const AMPARO_INTEGRAL_CORTESIA = 1_000_000;
 
 /**
- * Tasa de fianza a la que ingresan los contratos (sobre el canon).
- * MVP: constante; debería venir de la negociación por inmobiliaria
- * (inmobiliaria.tasa_canon).
+ * Tasa de fianza a la que ingresan los contratos (sobre el canon). Es la MISMA
+ * tasa que se le muestra al cliente en sus preaprobados ("Tasa preferencial").
+ * Fuente única: alimenta la KPI del portal y el resumen del ingreso.
+ * MVP: constante; debería venir de la negociación por inmobiliaria.
  */
-export const TASA_FIANZA = 0.02;
+export const TASA_FIANZA = 0.0135;
+
+/** La tasa de fianza formateada para mostrar (ej. "1,35%"). */
+export const TASA_FIANZA_PCT =
+  (TASA_FIANZA * 100).toLocaleString("es-CO", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }) + "%";
 
 export function ingresaEsteMes(hoy: Date = new Date()): boolean {
   return hoy.getDate() <= DIA_CORTE_INGRESOS;

@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabase/server";
+import { TASA_FIANZA_PCT } from "@/lib/radicacion";
 import { PreaprobadosView, type PreaprobadoRow } from "./PreaprobadosView";
 import { ProcesoView } from "./ProcesoView";
 
@@ -74,5 +75,5 @@ export default async function PreaprobadosPage() {
     .eq("tipo_estudio", "PREAPROBACION")
     .eq("estado_ingreso", "INGRESADO");
 
-  return <PreaprobadosView rows={rows} afianzados={count ?? 0} tasaPct="1,35%" />;
+  return <PreaprobadosView rows={rows} afianzados={count ?? 0} tasaPct={TASA_FIANZA_PCT} />;
 }
