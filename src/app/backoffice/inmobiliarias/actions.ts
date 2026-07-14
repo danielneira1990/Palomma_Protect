@@ -68,8 +68,6 @@ export type MerchantData = {
   email_contacto: string | null;
   representante_legal: string | null;
   cc_representante: string | null;
-  email_representante: string | null;
-  celular_representante: string | null;
 };
 
 /** Trae los datos del merchant (desde Pay/rentals_merchants) para auto-llenar. */

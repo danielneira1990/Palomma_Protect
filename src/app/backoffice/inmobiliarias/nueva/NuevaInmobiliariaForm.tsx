@@ -44,8 +44,6 @@ export function NuevaInmobiliariaForm() {
         nit: m.nit ?? s.nit,
         representante_legal: m.representante_legal ?? s.representante_legal,
         cc_representante: m.cc_representante ?? s.cc_representante,
-        email_representante: m.email_representante ?? s.email_representante,
-        celular_representante: m.celular_representante ?? s.celular_representante,
         email_contacto: m.email_contacto ?? s.email_contacto,
         telefono: m.telefono ?? s.telefono,
         ciudad: m.ciudad ?? s.ciudad,

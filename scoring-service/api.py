@@ -80,8 +80,9 @@ def merchant(merchant_id: str, x_service_key: str = Header(default="")):
             "email_contacto": row.get("supportEmail"),
             "representante_legal": lr.get("name"),
             "cc_representante": lr.get("documentNumber"),
-            "email_representante": lr.get("email"),
-            "celular_representante": lr.get("phoneNumber") or lr.get("phone"),
+            # Nota: legalRepresentative de Tinybird solo trae name/documentType/
+            # documentNumber. El correo y celular del RL se capturan a mano en el
+            # formulario (se usan para la firma AUCO y su validación).
         }
     except HTTPException:
         raise
