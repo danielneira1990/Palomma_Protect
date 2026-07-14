@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Servicio de scoring: es Python. Su .venv/.uv-cache traen JS vendorizado
+    // enorme (plotly.min.js, etc.) que hacía reventar a eslint por memoria.
+    "scoring-service/**",
   ]),
 ]);
 

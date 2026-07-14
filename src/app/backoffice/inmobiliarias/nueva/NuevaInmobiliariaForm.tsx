@@ -11,6 +11,8 @@ const VACIO = {
   nit: "",
   representante_legal: "",
   cc_representante: "",
+  email_representante: "",
+  celular_representante: "",
   persona_contacto: "",
   email_contacto: "",
   telefono: "",
@@ -42,6 +44,8 @@ export function NuevaInmobiliariaForm() {
         nit: m.nit ?? s.nit,
         representante_legal: m.representante_legal ?? s.representante_legal,
         cc_representante: m.cc_representante ?? s.cc_representante,
+        email_representante: m.email_representante ?? s.email_representante,
+        celular_representante: m.celular_representante ?? s.celular_representante,
         email_contacto: m.email_contacto ?? s.email_contacto,
         telefono: m.telefono ?? s.telefono,
         ciudad: m.ciudad ?? s.ciudad,
@@ -143,6 +147,36 @@ export function NuevaInmobiliariaForm() {
             name="cc_representante"
             value={f.cc_representante}
             onChange={(e) => set("cc_representante", e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="banner info" style={{ marginBottom: 12 }}>
+        <span>✍️</span>
+        <div>
+          Correo y celular del <b>representante legal</b>: a estos se envía la firma electrónica y
+          con ellos validamos, contra la evidencia de AUCO, que quien firma la declaración es él.
+        </div>
+      </div>
+
+      <div className="row2">
+        <div className="field">
+          <label>Correo del representante legal</label>
+          <input
+            name="email_representante"
+            type="email"
+            placeholder="firma electrónica AUCO"
+            value={f.email_representante}
+            onChange={(e) => set("email_representante", e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label>Celular del representante legal</label>
+          <input
+            name="celular_representante"
+            placeholder="ej: 3193777281"
+            value={f.celular_representante}
+            onChange={(e) => set("celular_representante", e.target.value)}
           />
         </div>
       </div>

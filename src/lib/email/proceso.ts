@@ -3,22 +3,22 @@ import { layoutCorreo, caja, logoAttachment } from "./layout";
 type Adjunto = { filename: string; content: Buffer; cid?: string };
 export type Correo = { subject: string; html: string; attachments: Adjunto[] };
 
-/** Paz y salvo listo (con el PDF adjunto — lo agrega quien lo envía). */
+/** Declaración juramentada lista (con el PDF adjunto — lo agrega quien lo envía). */
 export function correoPazSalvo(data: {
   nombreContacto: string;
   numContratos: number;
 }): Correo {
   const nombre = data.nombreContacto?.trim() || "equipo";
   return {
-    subject: "Tu paz y salvo está listo · Palomma Protect",
+    subject: "Tu declaración juramentada está lista · Palomma Protect",
     html: layoutCorreo({
-      etiqueta: "Protect · Paz y salvo",
+      etiqueta: "Protect · Declaración juramentada",
       titulo: `¡Vas volando, ${nombre}! 🚀`,
-      intro: "Ya tienes tu paz y salvo. Un paso más y tu cartera queda afianzada.",
+      intro: "Ya tienes tu declaración juramentada. Un paso más y tu cartera queda afianzada.",
       contenido: caja(
         "morado",
-        "📎 Tu paz y salvo (referencia)",
-        `Adjuntamos el <b>paz y salvo</b> de tu radicación de <b>${data.numContratos} contrato(s)</b> <b>como referencia</b>. En los <b>próximos minutos/horas les llegará el documento para firma digital</b>. Una vez firmado, descárguenlo y <b>súbanlo en el portal</b> para continuar con el ingreso a fianza.`,
+        "📎 Tu declaración juramentada (referencia)",
+        `Adjuntamos la <b>declaración juramentada</b> de tu radicación de <b>${data.numContratos} contrato(s)</b> <b>como referencia</b>. En los <b>próximos minutos/horas le llegará al representante legal el documento para firma digital por AUCO</b> (con OTP, foto y documento). Una vez firmado, descárguenlo y <b>súbanlo en el portal</b> para continuar con el ingreso a fianza.`,
       ),
     }),
     attachments: [logoAttachment()],
@@ -38,30 +38,6 @@ export function correoCancelacion(data: { nombreContacto: string }): Correo {
         "morado",
         "Tus clientes están de vuelta",
         "Cancelamos tu proceso de radicación y tus clientes preaprobados <b>vuelven a estar disponibles</b>. Puedes iniciar uno nuevo cuando quieras desde el portal.",
-      ),
-    }),
-    attachments: [logoAttachment()],
-  };
-}
-
-/** Visto bueno del analista: la inmobiliaria ya puede hacer el ingreso. */
-export function correoAprobado(data: {
-  nombreContacto: string;
-  numContratos: number;
-  portalUrl: string;
-}): Correo {
-  const nombre = data.nombreContacto?.trim() || "equipo";
-  return {
-    subject: "¡Aprobado! Ya puedes afianzar tus contratos · Palomma Protect",
-    html: layoutCorreo({
-      etiqueta: "Protect · Validación aprobada",
-      titulo: `¡Buenas noticias, ${nombre}! ✅`,
-      intro: "Revisamos tus documentos y la firma, y quedó todo perfecto.",
-      contenido: caja(
-        "verde",
-        "✅ Todo validado — solo falta tu OK",
-        `Tu radicación de <b>${data.numContratos} contrato(s)</b> quedó aprobada. Entra al portal y confirma tú mismo el <b>ingreso a fianza</b> para dejar tu cartera protegida.`,
-        { texto: "Ir al portal a ingresar →", url: data.portalUrl },
       ),
     }),
     attachments: [logoAttachment()],

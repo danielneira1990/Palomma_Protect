@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { money, fecha } from "@/lib/format";
 import { PASOS, etapaIndex, etapaProgreso, tiempoDesde } from "@/lib/radicacion";
-import { aprobarRadicacion } from "./actions";
 
 export type ProcesoRow = {
   id: string;
@@ -15,17 +13,29 @@ export type ProcesoRow = {
   created_at: string | null;
   excel_key: string | null;
   paz_salvo_key: string | null;
-  inmobiliaria: { razon_social: string | null; codigo: string | null } | null;
+  firma_doc_id: string | null;
+  firma_email: string | null;
+  firma_metodo: string | null;
+  firma_at: string | null;
+  ultimo_error: string | null;
+  ultimo_error_at: string | null;
+  inmobiliaria: {
+    razon_social: string | null;
+    codigo: string | null;
+    persona_contacto: string | null;
+    email_contacto: string | null;
+    telefono: string | null;
+  } | null;
 };
 
 export type Cliente = { nombre: string | null; documento: string | null };
 
 function etapaPill(etapa: string | null) {
   const e = (etapa ?? "").toUpperCase();
-  if (e === "INGRESADA" || e === "APROBADA") return "pill pill-ok";
+  if (e === "INGRESADA") return "pill pill-ok";
   if (e === "CANCELADA") return "pill pill-danger";
   if (e === "PENDIENTE_INGRESO") return "pill pill-warn";
-  if (e === "FIRMADO" || e === "EN_VALIDACION") return "pill pill-info";
+  if (e === "FIRMADO" || e === "APROBADA" || e === "EN_VALIDACION") return "pill pill-info";
   if (e === "EXCEL_SUBIDO" || e === "PAZ_SALVO") return "pill pill-warn";
   return "pill pill-brand"; // INICIADA
 }
@@ -42,22 +52,9 @@ export function ProcesosTable({
   rows: ProcesoRow[];
   clientes: Record<string, Cliente[]>;
 }) {
-  const router = useRouter();
   const [sel, setSel] = useState<ProcesoRow | null>(null);
-  const [busy, setBusy] = useState(false);
   const activos = rows.filter((r) => r.etapa !== "INGRESADA" && r.etapa !== "CANCELADA").length;
-
-  async function aprobar(id: string) {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await aprobarRadicacion(id);
-      setSel(null);
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
+  const atascados = rows.filter((r) => r.ultimo_error).length;
 
   return (
     <>
@@ -84,6 +81,15 @@ export function ProcesosTable({
                     <td className="strong">{r.inmobiliaria?.razon_social ?? "—"}</td>
                     <td>
                       <span className={etapaPill(r.etapa)}>{r.etapa}</span>
+                      {r.ultimo_error && (
+                        <span
+                          className="pill pill-danger"
+                          style={{ marginLeft: 6 }}
+                          title={r.ultimo_error}
+                        >
+                          ⚠️ atascado
+                        </span>
+                      )}
                     </td>
                     <td style={{ minWidth: 110 }}>
                       <div
@@ -116,6 +122,7 @@ export function ProcesosTable({
         </div>
         <div className="tfoot">
           {rows.length} proceso(s) · {activos} activo(s)
+          {atascados > 0 && ` · ${atascados} atascado(s) — necesita(n) ayuda`}
         </div>
       </div>
 
@@ -136,6 +143,37 @@ export function ProcesosTable({
             </div>
 
             <div className="modal-body">
+              {sel.ultimo_error && (
+                <div className="banner warn" style={{ marginBottom: 18 }}>
+                  <span>⚠️</span>
+                  <div style={{ fontSize: ".84rem" }}>
+                    <b>Cliente atascado — se le rebotó el proceso.</b>
+                    <div style={{ margin: "4px 0" }}>{sel.ultimo_error}</div>
+                    {sel.ultimo_error_at && (
+                      <div style={{ color: "var(--muted)" }}>{tiempoDesde(sel.ultimo_error_at)}</div>
+                    )}
+                    <div style={{ marginTop: 8 }}>
+                      <b>Contacta a la inmobiliaria para ayudar:</b>{" "}
+                      {sel.inmobiliaria?.persona_contacto ?? "—"}
+                      {sel.inmobiliaria?.email_contacto && (
+                        <>
+                          {" · "}
+                          <a href={`mailto:${sel.inmobiliaria.email_contacto}`}>
+                            {sel.inmobiliaria.email_contacto}
+                          </a>
+                        </>
+                      )}
+                      {sel.inmobiliaria?.telefono && (
+                        <>
+                          {" · "}
+                          <a href={`tel:${sel.inmobiliaria.telefono}`}>{sel.inmobiliaria.telefono}</a>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {sel.etapa === "CANCELADA" ? (
                 <div className="banner warn" style={{ marginBottom: 18 }}>
                   <span>🚫</span>
@@ -246,7 +284,7 @@ export function ProcesosTable({
               </div>
 
               <div className="modal-sec" style={{ marginTop: 18 }}>
-                <h3>Documentos y validación</h3>
+                <h3>Documentos</h3>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
                   {sel.excel_key ? (
                     <a
@@ -267,27 +305,36 @@ export function ProcesosTable({
                       rel="noreferrer"
                       className="btn btn-outline btn-sm"
                     >
-                      📄 Paz y salvo firmado
+                      📄 Declaración firmada
                     </a>
                   ) : (
-                    <span className="pill pill-muted">Sin paz y salvo</span>
+                    <span className="pill pill-muted">Sin declaración</span>
                   )}
                 </div>
-                {sel.etapa === "EN_VALIDACION" ? (
-                  <button
-                    className="btn btn-purple"
-                    disabled={busy}
-                    onClick={() => aprobar(sel.id)}
+
+                {sel.firma_doc_id || sel.firma_email ? (
+                  <div
+                    className="banner"
+                    style={{
+                      background: "var(--sbg)",
+                      border: "1px solid rgba(29,158,117,.18)",
+                      color: "var(--success)",
+                      marginBottom: 0,
+                    }}
                   >
-                    {busy ? "Aprobando…" : "✅ Dar visto bueno"}
-                  </button>
-                ) : sel.etapa === "APROBADA" ? (
-                  <div style={{ fontSize: ".82rem", color: "var(--success)" }}>
-                    ✅ Visto bueno dado. Esperando que la inmobiliaria confirme el ingreso.
+                    <span>🔏</span>
+                    <div style={{ fontSize: ".82rem" }}>
+                      <b>Firma validada (AUCO).</b> Firmó el representante legal
+                      {sel.firma_email ? ` (${sel.firma_email})` : ""}
+                      {sel.firma_metodo ? ` · ${sel.firma_metodo}` : ""}
+                      {sel.firma_doc_id ? ` · doc ${sel.firma_doc_id}` : ""}
+                      {sel.firma_at ? ` · ${fecha(sel.firma_at)}` : ""}.
+                    </div>
                   </div>
                 ) : (
                   <div style={{ fontSize: ".82rem", color: "var(--muted)" }}>
-                    La aprobación se habilita cuando la inmobiliaria sube el paz y salvo firmado.
+                    Monitoreo: Palomma ya no aprueba la radicación. La inmobiliaria firma la
+                    declaración (validada contra AUCO) y hace el ingreso ella misma.
                   </div>
                 )}
               </div>

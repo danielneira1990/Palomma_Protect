@@ -68,6 +68,8 @@ export type MerchantData = {
   email_contacto: string | null;
   representante_legal: string | null;
   cc_representante: string | null;
+  email_representante: string | null;
+  celular_representante: string | null;
 };
 
 /** Trae los datos del merchant (desde Pay/rentals_merchants) para auto-llenar. */
@@ -113,6 +115,8 @@ export async function crearInmobiliaria(formData: FormData) {
     merchant_id: String(formData.get("merchant_id") ?? "").trim(),
     representante_legal: String(formData.get("representante_legal") ?? "").trim(),
     cc_representante: String(formData.get("cc_representante") ?? "").trim(),
+    email_representante: String(formData.get("email_representante") ?? "").trim(),
+    celular_representante: String(formData.get("celular_representante") ?? "").trim(),
     persona_contacto: String(formData.get("persona_contacto") ?? "").trim(),
     email_contacto: String(formData.get("email_contacto") ?? "").trim(),
     telefono: String(formData.get("telefono") ?? "").trim(),

@@ -119,7 +119,7 @@ export function ProcesoView({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "Paz_y_Salvo_Palomma.pdf";
+      a.download = "Declaracion_Juramentada_Palomma.pdf";
       a.click();
       URL.revokeObjectURL(url);
       router.refresh();
@@ -140,9 +140,9 @@ export function ProcesoView({
       fd.append("archivo", file);
       fd.append("radicacionId", radicacion.id);
       const res = await fetch("/inmobiliaria/preaprobados/firmar", { method: "POST", body: fd });
-      const j = (await res.json()) as { ok: boolean; error?: string };
+      const j = (await res.json()) as { ok: boolean; errores?: string[] };
       if (j.ok) router.refresh();
-      else setErrores([j.error ?? "No se pudo subir el archivo."]);
+      else setErrores(j.errores ?? ["No se pudo validar el documento firmado."]);
     } catch {
       setErrores(["Error subiendo el archivo."]);
     } finally {
@@ -244,12 +244,16 @@ export function ProcesoView({
           <div className="banner warn" style={{ marginBottom: 14 }}>
             <span>⚠️</span>
             <div>
-              <b>Revisa:</b>
+              <b>No pudimos continuar. Corrige estos puntos en el mismo archivo y vuelve a subirlo:</b>
               <ul style={{ margin: "6px 0 0 16px" }}>
                 {errores.map((e, i) => (
                   <li key={i}>{e}</li>
                 ))}
               </ul>
+              <div style={{ marginTop: 8, fontSize: ".82rem", color: "var(--muted)" }}>
+                Recuerda: cada <b>inquilino</b> va una sola vez; los <b>codeudores sí pueden
+                repetirse</b>. Si necesitas ayuda, escríbenos y te acompañamos.
+              </div>
             </div>
           </div>
         )}
@@ -276,10 +280,10 @@ export function ProcesoView({
           <>
             <p style={{ fontSize: ".9rem", marginBottom: 14 }}>
               Radicación validada · valor asegurado <b>{money(radicacion.valor_asegurado)}</b>. Genera
-              el paz y salvo, fírmalo y súbelo.
+              la declaración juramentada, fírmala y súbela.
             </p>
             <button className="btn btn-purple" disabled={busy} onClick={descargarPazSalvo}>
-              {busy ? "Generando…" : "📄 Generar y descargar paz y salvo"}
+              {busy ? "Generando…" : "📄 Generar y descargar declaración"}
             </button>
           </>
         )}
@@ -287,11 +291,13 @@ export function ProcesoView({
         {radicacion.etapa === "PAZ_SALVO" && (
           <>
             <p style={{ fontSize: ".9rem", marginBottom: 14 }}>
-              Firma el paz y salvo (representante legal) y súbelo firmado para continuar.
+              El <b>representante legal</b> firma la declaración juramentada por <b>AUCO</b> (con OTP,
+              foto y documento) y aquí subes el PDF firmado. Validamos automáticamente que la firma
+              sea la suya.
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <label className="btn btn-purple" style={{ cursor: busy ? "default" : "pointer" }}>
-                {busy ? "Subiendo…" : "📤 Subir paz y salvo firmado"}
+                {busy ? "Validando…" : "📤 Subir declaración firmada"}
                 <input type="file" accept=".pdf" hidden disabled={busy} onChange={subirFirmado} />
               </label>
               <button className="btn btn-outline" disabled={busy} onClick={descargarPazSalvo}>
@@ -301,17 +307,7 @@ export function ProcesoView({
           </>
         )}
 
-        {radicacion.etapa === "EN_VALIDACION" && (
-          <div className="banner info" style={{ marginBottom: 0 }}>
-            <span>🔎</span>
-            <div>
-              <b>En validación por Palomma.</b> Estamos revisando tus documentos y la firma. Te
-              avisamos por correo apenas quede aprobado para que confirmes el ingreso.
-            </div>
-          </div>
-        )}
-
-        {radicacion.etapa === "APROBADA" && (
+        {radicacion.etapa === "FIRMADO" && (
           <>
             <div
               className="banner"
@@ -324,8 +320,8 @@ export function ProcesoView({
             >
               <span>✅</span>
               <div>
-                <b>¡Aprobado por Palomma!</b> Tus documentos y firma están perfectos. Solo falta tu
-                confirmación para afianzar.
+                <b>Declaración firmada y validada.</b> Confirmamos que firmó el representante legal.
+                Solo falta que confirmes el ingreso a fianza.
               </div>
             </div>
             <p style={{ fontSize: ".9rem", marginBottom: 14 }}>

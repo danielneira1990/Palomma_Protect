@@ -14,7 +14,7 @@ export default async function ProcesosPage() {
     const { data } = await supabase
       .from("radicacion")
       .select(
-        "id, codigo, etapa, num_clientes, valor_asegurado, created_at, excel_key, paz_salvo_key, inmobiliaria(razon_social, codigo)",
+        "id, codigo, etapa, num_clientes, valor_asegurado, created_at, excel_key, paz_salvo_key, firma_doc_id, firma_email, firma_metodo, firma_at, ultimo_error, ultimo_error_at, inmobiliaria(razon_social, codigo, persona_contacto, email_contacto, telefono)",
       )
       .order("created_at", { ascending: false });
     rows = (data ?? []) as unknown as ProcesoRow[];

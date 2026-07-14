@@ -80,6 +80,8 @@ def merchant(merchant_id: str, x_service_key: str = Header(default="")):
             "email_contacto": row.get("supportEmail"),
             "representante_legal": lr.get("name"),
             "cc_representante": lr.get("documentNumber"),
+            "email_representante": lr.get("email"),
+            "celular_representante": lr.get("phoneNumber") or lr.get("phone"),
         }
     except HTTPException:
         raise

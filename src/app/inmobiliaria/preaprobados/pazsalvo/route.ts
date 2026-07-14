@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   );
 
   if (!gen) {
-    return new Response("No se pudo generar el paz y salvo (revisa la config de Google).", {
+    return new Response("No se pudo generar la declaración (revisa la config de Google).", {
       status: 500,
     });
   }
@@ -82,17 +82,20 @@ export async function POST(request: Request) {
         to: inmo.email_contacto,
         subject,
         html,
-        attachments: [...attachments, { filename: "Paz_y_Salvo_Palomma.pdf", content: gen.pdf }],
+        attachments: [
+          ...attachments,
+          { filename: "Declaracion_Juramentada_Palomma.pdf", content: gen.pdf },
+        ],
       });
     }
   } catch (e) {
-    console.error("No se pudo enviar el correo del paz y salvo:", e);
+    console.error("No se pudo enviar el correo de la declaración:", e);
   }
 
   return new Response(gen.pdf as unknown as ArrayBuffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": 'attachment; filename="Paz_y_Salvo_Palomma.pdf"',
+      "Content-Disposition": 'attachment; filename="Declaracion_Juramentada_Palomma.pdf"',
     },
   });
 }

@@ -2,24 +2,28 @@ export const ETAPAS = [
   "INICIADA",
   "EXCEL_SUBIDO",
   "PAZ_SALVO",
-  "EN_VALIDACION",
+  "FIRMADO",
   "INGRESADA",
 ] as const;
 
 export type Etapa = (typeof ETAPAS)[number];
 
-/** Los 5 pasos del proceso de inducción, en orden. */
+/**
+ * Los 5 pasos del proceso de inducción, en orden. Modelo self-service: Palomma
+ * ya no valida internamente; la declaración juramentada firmada (validada contra
+ * la evidencia de AUCO) habilita directamente el ingreso a fianza.
+ */
 export const PASOS: { etapa: Etapa; titulo: string; hecho: string }[] = [
   { etapa: "INICIADA", titulo: "Radicación iniciada", hecho: "Radicación iniciada" },
   { etapa: "EXCEL_SUBIDO", titulo: "Excel cargado y validado", hecho: "Excel cargado" },
-  { etapa: "PAZ_SALVO", titulo: "Paz y salvo generado", hecho: "Paz y salvo generado" },
-  { etapa: "EN_VALIDACION", titulo: "Validación de Palomma", hecho: "Validado por Palomma" },
+  { etapa: "PAZ_SALVO", titulo: "Declaración juramentada generada", hecho: "Declaración generada" },
+  { etapa: "FIRMADO", titulo: "Declaración firmada y validada", hecho: "Firmada y validada" },
   { etapa: "INGRESADA", titulo: "Contratos afianzados", hecho: "Afianzados" },
 ];
 
 export function etapaIndex(etapa: string | null): number {
-  if (etapa === "FIRMADO") return 3; // legacy → validación
-  if (etapa === "APROBADA") return 4; // visto bueno dado, falta que la inmobiliaria ingrese
+  // Estados legados (ya no se usan): la validación interna se eliminó.
+  if (etapa === "EN_VALIDACION" || etapa === "APROBADA") return 3; // ≈ FIRMADO
   if (etapa === "PENDIENTE_INGRESO") return 4; // ingresado, pendiente del próximo mes
   const i = ETAPAS.indexOf((etapa ?? "") as Etapa);
   return i < 0 ? 0 : i;
@@ -28,7 +32,6 @@ export function etapaIndex(etapa: string | null): number {
 /** % de avance (la etapa actual cuenta como completada). */
 export function etapaProgreso(etapa: string | null): number {
   if (etapa === "CANCELADA") return 0;
-  if (etapa === "APROBADA") return 90;
   if (etapa === "PENDIENTE_INGRESO") return 95;
   return Math.round(((etapaIndex(etapa) + 1) / ETAPAS.length) * 100);
 }

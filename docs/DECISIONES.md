@@ -154,38 +154,57 @@ PRIME/STANDARD/SUBPRIME/…) que corre sobre los datos de pago de Pay (Tinybird)
 Del preaprobado al ingreso a fianza. Tabla `radicacion` (migración 0006) con una
 etapa que avanza en un solo sentido; cada etapa habilita **una** acción en el portal.
 
-- **Etapas** (`radicacion.etapa`): `INICIADA` → `EXCEL_SUBIDO` → `PAZ_SALVO` →
-  `EN_VALIDACION` → `APROBADA` → `INGRESADA`. Más `PENDIENTE_INGRESO` (aprobada pero
-  pasó el corte del mes) y `CANCELADA`. Las migraciones 0007–0011 fueron agregando
-  estados al `check` a medida que crecía el flujo (una por estado, para no romper
-  datos existentes). Etiquetas y progreso viven en `src/lib/radicacion.ts`.
-- **Roles — quién hace qué:** la inmobiliaria maneja todo su proceso desde el portal
-  (seleccionar clientes, subir Excel, generar/firmar paz y salvo, **y confirmar el
-  ingreso**). El analista de Palomma **solo da el visto bueno** (`EN_VALIDACION` →
-  `APROBADA`) desde `/backoffice/procesos`. **Palomma nunca ingresa por el cliente:**
-  al aprobar se le manda un correo con botón al portal para que ella misma ingrese.
-- **Validación del Excel:** al subir el archivo completado (`/subir`) se parsea con
-  exceljs y se valida que estén **todos** los clientes de la radicación y el canon;
-  se calcula el **valor asegurado** (suma de cánones). Si falta algo, se devuelven los
-  errores y no avanza.
-- **Paz y salvo** (`src/lib/google/pazSalvo.ts`): se genera desde plantilla de Google
-  Docs con `replaceAllText`, incluyendo el **valor asegurado total**. Se envía por
-  correo **como referencia**; la firma digital "real" llega aparte. La inmobiliaria
-  sube el firmado (`/firmar`) y pasa a `EN_VALIDACION`.
-- **Regla de fecha de ingreso:** `DIA_CORTE_INGRESOS = 20`. Si la inmobiliaria
-  confirma antes del corte, ingresa este mes (`INGRESADA`, estudios `INGRESADO`); si
-  no, queda `PENDIENTE_INGRESO` para el próximo. Cada transición manda un correo con
-  el layout de marca (`src/lib/email/proceso.ts`: paz y salvo, cancelación, aprobado,
+- **Modelo self-service (decisión de rediseño):** Palomma **ya no valida ni aprueba**
+  la radicación. El control real ocurre al **siniestro**, contra el contrato de
+  arrendamiento, respaldado por la **declaración juramentada** firmada: si el dato no
+  concuerda, no se paga. El "visto bueno" del analista era fricción que no reducía el
+  riesgo financiero, así que se eliminó. A cambio se reforzaron los dos controles que
+  sí importan: la **validación automática del Excel** y la **firma de la declaración**.
+- **Etapas** (`radicacion.etapa`): `INICIADA` → `EXCEL_SUBIDO` → `PAZ_SALVO` (declaración
+  generada) → `FIRMADO` (declaración firmada y validada) → `INGRESADA`. Más
+  `PENDIENTE_INGRESO` (firmada pero pasó el corte del mes) y `CANCELADA`.
+  `EN_VALIDACION`/`APROBADA` quedan como estados **legados** permitidos (no se borra el
+  histórico) pero ya no se usan. Etiquetas y progreso: `src/lib/radicacion.ts`.
+- **Roles:** la inmobiliaria maneja **todo** desde el portal (seleccionar clientes,
+  subir Excel, generar/firmar la declaración **y confirmar el ingreso**). El backoffice
+  `/backoffice/procesos` es **solo monitoreo (read-only)**: etapa, avance, documentos y
+  evidencia de firma; sin botón de aprobar.
+- **Validación del Excel reforzada** (`/subir`, exceljs): además de que estén **todos**
+  los clientes y el canon (con el **valor asegurado** = suma de cánones), valida
+  **inquilinos duplicados** (los codeudores **sí** pueden repetirse — una persona puede
+  ser codeudor de varios contratos), canon en rango, tipo destino (Vivienda/Comercio),
+  dirección, y fechas válidas y coherentes (fin > inicio). Cada error lista los
+  documentos afectados.
+- **Declaración juramentada** (`src/lib/google/pazSalvo.ts`, antes "paz y salvo"): se
+  genera desde plantilla de Google Docs con `replaceAllText`, incluyendo el **valor
+  asegurado total**. Se envía por correo **como referencia**; la firma digital llega
+  aparte por **AUCO** (dirigida al representante legal). *Pendiente:* meterle la fórmula
+  de juramento al documento de la plantilla.
+- **Validación de la firma (AUCO, `src/lib/auco.ts`, migración 0013):** al subir el PDF
+  firmado (`/firmar`), se extrae el texto (`unpdf`), se parsea el "Certificado de firma"
+  de AUCO y se valida contra el registro que el firmante es el **representante legal**:
+  **correo** y **celular** coinciden (campos `email_representante`/`celular_representante`,
+  migración 0012, traídos de Pay) y se usó el **método fuerte** (OTP + foto + documento).
+  Se guarda la evidencia (`firma_doc_id`, `firma_hash`, `firma_email`, `firma_metodo`,
+  `firma_at`). Con solo el PDF la cédula no viene como campo; el día que haya API de AUCO
+  se podrá cruzar contra `cc_representante`.
+- **Rebotes visibles para el backoffice (migración 0014):** si la validación del Excel o
+  de la firma falla, se guarda el motivo en `radicacion.ultimo_error`/`ultimo_error_at`
+  (se limpia al avanzar). El portal le dice al cliente **qué corregir**; el backoffice
+  marca la radicación como **"⚠️ atascado"** y muestra el error + el **contacto de la
+  inmobiliaria** (correo/teléfono) para acompañarla.
+- **Regla de fecha de ingreso:** `DIA_CORTE_INGRESOS = 20`. Antes del corte ingresa este
+  mes (`INGRESADA`, estudios `INGRESADO`); después queda `PENDIENTE_INGRESO`. Cada
+  transición manda correo de marca (`src/lib/email/proceso.ts`: declaración, cancelación,
   ingreso).
-- **Cancelar:** `CANCELADA` **libera** los preaprobados (el portal los vuelve a
-  mostrar como disponibles) pero conserva el histórico de la radicación para el
-  backoffice; no se borran filas.
+- **Cancelar:** `CANCELADA` **libera** los preaprobados (vuelven a estar disponibles) pero
+  conserva el histórico; no se borran filas.
 - **Storage:** cada radicación tiene su **subcarpeta en Drive** (migración 0009,
-  `radicacion.drive_folder_id`, `src/lib/radicacionDrive.ts`) donde quedan el Excel y
-  el paz y salvo firmado; el backoffice enlaza a esos documentos desde su modal.
-- **UI:** el portal (`ProcesoView`) muestra barra de progreso morada + timeline de
-  pasos y **reanuda** el proceso donde iba (no re-muestra "iniciar"); el backoffice
-  (`ProcesosTable`) lista etapa/avance/tiempo con modal de detalle.
+  `radicacion.drive_folder_id`, `src/lib/radicacionDrive.ts`) con el Excel y la
+  declaración firmada; el backoffice enlaza a esos documentos.
+- **UI:** el portal (`ProcesoView`) muestra barra de progreso morada + timeline y
+  **reanuda** donde iba; el backoffice (`ProcesosTable`) lista etapa/avance/tiempo con
+  modal de detalle y monitoreo.
 
 ---
 
