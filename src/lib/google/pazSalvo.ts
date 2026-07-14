@@ -52,9 +52,9 @@ export async function generarPazYSalvo(
     "{{NOMBRE_REPRESENTANTE_LEGAL}}": data.representanteLegal,
     "{{IDENTIFICACION_REPRESENTANTE}}": data.ccRepresentante,
     "{{NOMBRE_ARCHIVO_EXCEL}}": data.nombreArchivoExcel,
-    // Añade el valor asegurado junto al número de contratos.
-    "{{NUMERO_CONTRATOS}} contratos": `${data.numContratos} contratos, por un valor asegurado total de ${valor}`,
+    // Dos marcadores limpios e independientes para la declaración juramentada.
     "{{NUMERO_CONTRATOS}}": String(data.numContratos),
+    "{{VALOR_ASEGURADO}}": valor,
   };
   await docs.documents.batchUpdate({
     documentId: docId,
