@@ -368,7 +368,7 @@ export function ProcesoView({
               {[
                 ["Contratos a afianzar", `${nContratos}`],
                 ["Valor asegurado total", money(valorAsegurado)],
-                ["Tasa de fianza", `${TASA_FIANZA_PCT} del canon (la misma de tus preaprobados)`],
+                ["Tasa de fianza", TASA_FIANZA_PCT],
                 ["Costo de fianza estimado", `${money(costoFianzaMes)} / mes`],
               ].map(([k, v]) => (
                 <div
