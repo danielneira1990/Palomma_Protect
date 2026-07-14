@@ -1,7 +1,7 @@
 "use server";
 
 import { getSupabase } from "@/lib/supabase/server";
-import { enviarCorreo } from "@/lib/email/client";
+import { enviarCorreo, destinatarios } from "@/lib/email/client";
 import { correoCancelacion, correoIngreso } from "@/lib/email/proceso";
 import { ingresaEsteMes } from "@/lib/radicacion";
 import { revalidatePath } from "next/cache";
@@ -58,14 +58,15 @@ export async function cancelarRadicacion(id: string) {
     if (rad?.id_inmobiliaria) {
       const { data: inmo } = await supabase
         .from("inmobiliaria")
-        .select("razon_social, persona_contacto, email_contacto")
+        .select("razon_social, persona_contacto, email_contacto, email_representante")
         .eq("id", rad.id_inmobiliaria)
         .single();
-      if (inmo?.email_contacto) {
+      const to = destinatarios(inmo?.email_contacto, inmo?.email_representante);
+      if (to) {
         const { subject, html, attachments } = correoCancelacion({
-          nombreContacto: inmo.persona_contacto ?? "",
+          nombreContacto: inmo?.persona_contacto ?? "",
         });
-        await enviarCorreo({ to: inmo.email_contacto, subject, html, attachments });
+        await enviarCorreo({ to, subject, html, attachments });
       }
     }
   } catch (e) {
@@ -109,15 +110,16 @@ export async function ingresarRadicacion(id: string) {
     if (rad?.id_inmobiliaria) {
       const { data: inmo } = await supabase
         .from("inmobiliaria")
-        .select("persona_contacto, email_contacto")
+        .select("persona_contacto, email_contacto, email_representante")
         .eq("id", rad.id_inmobiliaria)
         .single();
-      if (inmo?.email_contacto) {
+      const to = destinatarios(inmo?.email_contacto, inmo?.email_representante);
+      if (to) {
         const { subject, html, attachments } = correoIngreso(
-          { nombreContacto: inmo.persona_contacto ?? "", numContratos: rad.num_clientes ?? 0 },
+          { nombreContacto: inmo?.persona_contacto ?? "", numContratos: rad.num_clientes ?? 0 },
           esteMes,
         );
-        await enviarCorreo({ to: inmo.email_contacto, subject, html, attachments });
+        await enviarCorreo({ to, subject, html, attachments });
       }
     }
   } catch (e) {

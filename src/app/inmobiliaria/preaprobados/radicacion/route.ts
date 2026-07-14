@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import { getSupabase } from "@/lib/supabase/server";
-import { enviarCorreo } from "@/lib/email/client";
+import { enviarCorreo, destinatarios } from "@/lib/email/client";
 import { correoInduccion } from "@/lib/email/induccion";
 
 type Persona = {
@@ -144,17 +144,18 @@ export async function POST(request: Request) {
     if (idInmo) {
       const { data: inmo } = await supabase
         .from("inmobiliaria")
-        .select("razon_social, persona_contacto, email_contacto")
+        .select("razon_social, persona_contacto, email_contacto, email_representante")
         .eq("id", idInmo)
         .single();
-      if (inmo?.email_contacto) {
+      const to = destinatarios(inmo?.email_contacto, inmo?.email_representante);
+      if (to) {
         const { subject, html, attachments } = correoInduccion({
-          razonSocial: inmo.razon_social ?? "",
-          nombreContacto: inmo.persona_contacto ?? "",
+          razonSocial: inmo?.razon_social ?? "",
+          nombreContacto: inmo?.persona_contacto ?? "",
           numClientes: estudios.length,
         });
         await enviarCorreo({
-          to: inmo.email_contacto,
+          to,
           subject,
           html,
           attachments: [

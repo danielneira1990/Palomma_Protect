@@ -22,6 +22,23 @@ function getMailer() {
   });
 }
 
+/**
+ * Arma la lista de destinatarios ("a@x.com, b@y.com") a partir de varios correos,
+ * quitando vacíos y duplicados (case-insensitive). Se usa para enviar los correos
+ * del proceso tanto al contacto operativo como al representante legal.
+ */
+export function destinatarios(...emails: (string | null | undefined)[]): string {
+  const vistos = new Set<string>();
+  const salida: string[] = [];
+  for (const e of emails) {
+    const v = (e ?? "").trim();
+    if (!v || vistos.has(v.toLowerCase())) continue;
+    vistos.add(v.toLowerCase());
+    salida.push(v);
+  }
+  return salida.join(", ");
+}
+
 export async function enviarCorreo(opts: {
   to: string;
   subject: string;

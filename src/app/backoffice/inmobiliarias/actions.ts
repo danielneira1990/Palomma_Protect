@@ -7,7 +7,7 @@ import {
   subirContratoFirmadoADrive,
 } from "@/lib/google/contratoMarco";
 import { exportarReglamentosPdf } from "@/lib/google/reglamentos";
-import { enviarCorreo } from "@/lib/email/client";
+import { enviarCorreo, destinatarios } from "@/lib/email/client";
 import { correoBienvenida } from "@/lib/email/bienvenida";
 import { correoContratoMarco } from "@/lib/email/contratoMarco";
 import { fechaLarga } from "@/lib/format";
@@ -19,6 +19,7 @@ type InmoBienvenida = {
   razon_social: string | null;
   persona_contacto: string | null;
   email_contacto: string | null;
+  email_representante: string | null;
 };
 
 /** Envía el correo de bienvenida y marca la fecha. Lanza error si falla. */
@@ -44,7 +45,7 @@ async function mandarBienvenida(supabase: SupabaseClient, inmo: InmoBienvenida) 
   }
 
   const res = await enviarCorreo({
-    to: inmo.email_contacto,
+    to: destinatarios(inmo.email_contacto, inmo.email_representante),
     subject,
     html,
     attachments: adjuntos,
@@ -168,7 +169,7 @@ export async function crearInmobiliaria(formData: FormData) {
           contratoLink: doc.pdfLink,
         });
         await enviarCorreo({
-          to: payload.email_contacto,
+          to: destinatarios(payload.email_contacto, payload.email_representante),
           subject,
           html,
           attachments: [
@@ -207,7 +208,7 @@ export async function subirContratoFirmado(formData: FormData) {
   const { data: inmo, error } = await supabase
     .from("inmobiliaria")
     .select(
-      "id, codigo, razon_social, num_contrato_marco, drive_folder_id, persona_contacto, email_contacto, bienvenida_enviada_at",
+      "id, codigo, razon_social, num_contrato_marco, drive_folder_id, persona_contacto, email_contacto, email_representante, bienvenida_enviada_at",
     )
     .eq("id", id)
     .single();
@@ -295,12 +296,12 @@ export async function reenviarContratoMarco(id: string) {
 
   const { data: inmo, error } = await supabase
     .from("inmobiliaria")
-    .select("id, razon_social, persona_contacto, email_contacto")
+    .select("id, razon_social, persona_contacto, email_contacto, email_representante")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
-  if (!inmo.email_contacto) {
-    throw new Error("La inmobiliaria no tiene correo de contacto.");
+  if (!inmo.email_contacto && !inmo.email_representante) {
+    throw new Error("La inmobiliaria no tiene correo de contacto ni de representante legal.");
   }
 
   const { data: docu } = await supabase
@@ -316,7 +317,12 @@ export async function reenviarContratoMarco(id: string) {
     nombreContacto: inmo.persona_contacto ?? "",
     contratoLink: docu?.storage_key ?? undefined,
   });
-  const res = await enviarCorreo({ to: inmo.email_contacto, subject, html, attachments });
+  const res = await enviarCorreo({
+    to: destinatarios(inmo.email_contacto, inmo.email_representante),
+    subject,
+    html,
+    attachments,
+  });
   if (!res) {
     throw new Error("El envío de correo no está configurado (revisa SMTP_* en .env.local).");
   }

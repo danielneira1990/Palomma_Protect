@@ -1,7 +1,7 @@
 import { getSupabase } from "@/lib/supabase/server";
 import { generarPazYSalvo } from "@/lib/google/pazSalvo";
 import { carpetaRadicacion } from "@/lib/radicacionDrive";
-import { enviarCorreo } from "@/lib/email/client";
+import { enviarCorreo, destinatarios } from "@/lib/email/client";
 import { correoPazSalvo } from "@/lib/email/proceso";
 
 const MESES = [
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
   const { data: inmo } = await supabase
     .from("inmobiliaria")
-    .select("razon_social, nit, representante_legal, cc_representante, ciudad, persona_contacto, email_contacto")
+    .select("razon_social, nit, representante_legal, cc_representante, ciudad, persona_contacto, email_contacto, email_representante")
     .eq("id", rad.id_inmobiliaria)
     .single();
   if (!inmo) return new Response("Inmobiliaria no encontrada.", { status: 404 });
@@ -73,13 +73,14 @@ export async function POST(request: Request) {
 
   // Correo con el paz y salvo adjunto (mejor esfuerzo).
   try {
-    if (inmo.email_contacto) {
+    const to = destinatarios(inmo.email_contacto, inmo.email_representante);
+    if (to) {
       const { subject, html, attachments } = correoPazSalvo({
         nombreContacto: inmo.persona_contacto ?? "",
         numContratos: rad.num_clientes ?? 0,
       });
       await enviarCorreo({
-        to: inmo.email_contacto,
+        to,
         subject,
         html,
         attachments: [
