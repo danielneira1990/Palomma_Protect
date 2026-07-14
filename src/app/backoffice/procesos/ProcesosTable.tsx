@@ -305,10 +305,10 @@ export function ProcesosTable({
                       rel="noreferrer"
                       className="btn btn-outline btn-sm"
                     >
-                      📄 Declaración firmada
+                      📄 Paz y salvo firmado
                     </a>
                   ) : (
-                    <span className="pill pill-muted">Sin declaración</span>
+                    <span className="pill pill-muted">Sin paz y salvo</span>
                   )}
                 </div>
 
@@ -333,8 +333,8 @@ export function ProcesosTable({
                   </div>
                 ) : (
                   <div style={{ fontSize: ".82rem", color: "var(--muted)" }}>
-                    Monitoreo: Palomma ya no aprueba la radicación. La inmobiliaria firma la
-                    declaración (validada contra AUCO) y hace el ingreso ella misma.
+                    Monitoreo: Palomma ya no aprueba la radicación. La inmobiliaria firma el
+                    paz y salvo (validado contra AUCO) y hace el ingreso ella misma.
                   </div>
                 )}
               </div>

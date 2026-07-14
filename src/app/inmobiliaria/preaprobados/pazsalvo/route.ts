@@ -85,7 +85,7 @@ export async function POST(request: Request) {
         html,
         attachments: [
           ...attachments,
-          { filename: "Declaracion_Juramentada_Palomma.pdf", content: gen.pdf },
+          { filename: "Paz_y_Salvo_Palomma.pdf", content: gen.pdf },
         ],
       });
     }
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
   return new Response(gen.pdf as unknown as ArrayBuffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": 'attachment; filename="Declaracion_Juramentada_Palomma.pdf"',
+      "Content-Disposition": 'attachment; filename="Paz_y_Salvo_Palomma.pdf"',
     },
   });
 }

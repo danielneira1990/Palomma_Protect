@@ -10,14 +10,14 @@ export type Etapa = (typeof ETAPAS)[number];
 
 /**
  * Los 5 pasos del proceso de inducción, en orden. Modelo self-service: Palomma
- * ya no valida internamente; la declaración juramentada firmada (validada contra
+ * ya no valida internamente; la declaración de paz y salvo firmada (validada contra
  * la evidencia de AUCO) habilita directamente el ingreso a fianza.
  */
 export const PASOS: { etapa: Etapa; titulo: string; hecho: string }[] = [
   { etapa: "INICIADA", titulo: "Radicación iniciada", hecho: "Radicación iniciada" },
   { etapa: "EXCEL_SUBIDO", titulo: "Excel cargado y validado", hecho: "Excel cargado" },
-  { etapa: "PAZ_SALVO", titulo: "Declaración juramentada generada", hecho: "Declaración generada" },
-  { etapa: "FIRMADO", titulo: "Declaración firmada y validada", hecho: "Firmada y validada" },
+  { etapa: "PAZ_SALVO", titulo: "Paz y salvo generado", hecho: "Paz y salvo generado" },
+  { etapa: "FIRMADO", titulo: "Paz y salvo firmado y validado", hecho: "Firmado y validado" },
   { etapa: "INGRESADA", titulo: "Contratos afianzados", hecho: "Afianzados" },
 ];
 
@@ -42,6 +42,16 @@ export function etapaProgreso(etapa: string | null): number {
  * (MVP: constante. Debería venir de calendario_operativo.corte_ingresos.)
  */
 export const DIA_CORTE_INGRESOS = 20;
+
+/** Amparo integral de cortesía por contrato para los preaprobados (regalo). */
+export const AMPARO_INTEGRAL_CORTESIA = 1_000_000;
+
+/**
+ * Tasa de fianza a la que ingresan los contratos (sobre el canon).
+ * MVP: constante; debería venir de la negociación por inmobiliaria
+ * (inmobiliaria.tasa_canon).
+ */
+export const TASA_FIANZA = 0.02;
 
 export function ingresaEsteMes(hoy: Date = new Date()): boolean {
   return hoy.getDate() <= DIA_CORTE_INGRESOS;

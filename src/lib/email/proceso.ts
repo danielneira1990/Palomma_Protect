@@ -3,22 +3,22 @@ import { layoutCorreo, caja, logoAttachment } from "./layout";
 type Adjunto = { filename: string; content: Buffer; cid?: string };
 export type Correo = { subject: string; html: string; attachments: Adjunto[] };
 
-/** Declaración juramentada lista (con el PDF adjunto — lo agrega quien lo envía). */
+/** Declaración de paz y salvo lista (con el PDF adjunto — lo agrega quien lo envía). */
 export function correoPazSalvo(data: {
   nombreContacto: string;
   numContratos: number;
 }): Correo {
   const nombre = data.nombreContacto?.trim() || "equipo";
   return {
-    subject: "Tu declaración juramentada está lista · Palomma Protect",
+    subject: "Tu paz y salvo está listo · Palomma Protect",
     html: layoutCorreo({
-      etiqueta: "Protect · Declaración juramentada",
+      etiqueta: "Protect · Paz y salvo",
       titulo: `¡Vas volando, ${nombre}! 🚀`,
-      intro: "Ya tienes tu declaración juramentada. Un paso más y tu cartera queda afianzada.",
+      intro: "Ya tienes tu declaración de paz y salvo. Un paso más y tu cartera queda afianzada.",
       contenido: caja(
         "morado",
-        "📎 Tu declaración juramentada (referencia)",
-        `Adjuntamos la <b>declaración juramentada</b> de tu radicación de <b>${data.numContratos} contrato(s)</b> <b>como referencia</b>. En los <b>próximos minutos/horas le llegará al representante legal el documento para firma digital por AUCO</b> (con OTP, foto y documento). Una vez firmado, descárguenlo y <b>súbanlo en el portal</b> para continuar con el ingreso a fianza.`,
+        "📎 Tu paz y salvo (referencia)",
+        `Adjuntamos la <b>declaración de paz y salvo</b> de tu radicación de <b>${data.numContratos} contrato(s)</b> <b>como referencia</b>. En los <b>próximos minutos/horas le llegará al representante legal el documento para firma digital por AUCO</b> (con OTP, foto y documento). Una vez firmado, descárguenlo y <b>súbanlo en el portal</b> para continuar con el ingreso a fianza.`,
       ),
     }),
     attachments: [logoAttachment()],

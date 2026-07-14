@@ -8,6 +8,8 @@ import {
   etapaProgreso,
   tiempoDesde,
   DIA_CORTE_INGRESOS,
+  AMPARO_INTEGRAL_CORTESIA,
+  TASA_FIANZA,
 } from "@/lib/radicacion";
 import { money } from "@/lib/format";
 import { cancelarRadicacion, ingresarRadicacion } from "./actions";
@@ -34,6 +36,12 @@ export function ProcesoView({
 
   const idx = etapaIndex(radicacion.etapa);
   const prog = etapaProgreso(radicacion.etapa);
+
+  // Resumen de lo que va a ingresar al seguro.
+  const nContratos = radicacion.num_clientes ?? 0;
+  const valorAsegurado = radicacion.valor_asegurado ?? 0;
+  const amparoTotal = AMPARO_INTEGRAL_CORTESIA * nContratos;
+  const costoFianzaMes = Math.round(valorAsegurado * TASA_FIANZA);
 
   async function descargarExcel() {
     setBusy(true);
@@ -119,7 +127,7 @@ export function ProcesoView({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "Declaracion_Juramentada_Palomma.pdf";
+      a.download = "Paz_y_Salvo_Palomma.pdf";
       a.click();
       URL.revokeObjectURL(url);
       router.refresh();
@@ -291,10 +299,10 @@ export function ProcesoView({
           <>
             <p style={{ fontSize: ".9rem", marginBottom: 14 }}>
               Radicación validada · valor asegurado <b>{money(radicacion.valor_asegurado)}</b>. Genera
-              la declaración juramentada, fírmala y súbela.
+              la declaración de paz y salvo, fírmala y súbela.
             </p>
             <button className="btn btn-purple" disabled={busy} onClick={descargarPazSalvo}>
-              {busy ? "Generando…" : "📄 Generar y descargar declaración"}
+              {busy ? "Generando…" : "📄 Generar y descargar paz y salvo"}
             </button>
           </>
         )}
@@ -302,13 +310,13 @@ export function ProcesoView({
         {radicacion.etapa === "PAZ_SALVO" && (
           <>
             <p style={{ fontSize: ".9rem", marginBottom: 14 }}>
-              El <b>representante legal</b> firma la declaración juramentada por <b>AUCO</b> (con OTP,
-              foto y documento) y aquí subes el PDF firmado. Validamos automáticamente que la firma
-              sea la suya.
+              El <b>representante legal</b> firma la declaración de paz y salvo por <b>AUCO</b> (con
+              OTP, foto y documento) y aquí subes el PDF firmado. Validamos automáticamente que la
+              firma sea la suya.
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <label className="btn btn-purple" style={{ cursor: busy ? "default" : "pointer" }}>
-                {busy ? "Validando…" : "📤 Subir declaración firmada"}
+                {busy ? "Validando…" : "📤 Subir paz y salvo firmado"}
                 <input type="file" accept=".pdf" hidden disabled={busy} onChange={subirFirmado} />
               </label>
               <button className="btn btn-outline" disabled={busy} onClick={descargarPazSalvo}>
@@ -331,10 +339,71 @@ export function ProcesoView({
             >
               <span>✅</span>
               <div>
-                <b>Declaración firmada y validada.</b> Confirmamos que firmó el representante legal.
-                Solo falta que confirmes el ingreso a fianza.
+                <b>Paz y salvo firmado y validado.</b> Confirmamos que firmó el representante legal.
+                Revisa el resumen y confirma el ingreso a fianza.
               </div>
             </div>
+
+            <div
+              style={{
+                border: "1px solid var(--line)",
+                borderRadius: 12,
+                padding: "14px 16px",
+                marginBottom: 14,
+                background: "var(--bg-2)",
+              }}
+            >
+              <div
+                style={{
+                  font: "600 11px var(--mono)",
+                  letterSpacing: ".08em",
+                  textTransform: "uppercase",
+                  color: "var(--muted-2)",
+                  marginBottom: 12,
+                }}
+              >
+                Resumen del ingreso al seguro
+              </div>
+              {[
+                ["Contratos a afianzar", `${nContratos}`],
+                ["Valor asegurado total", money(valorAsegurado)],
+                ["Tasa de fianza", `${(TASA_FIANZA * 100).toLocaleString("es-CO")}% del canon`],
+                ["Costo de fianza estimado", `${money(costoFianzaMes)} / mes`],
+              ].map(([k, v]) => (
+                <div
+                  key={k}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "5px 0",
+                    fontSize: ".88rem",
+                  }}
+                >
+                  <span style={{ color: "var(--muted)" }}>{k}</span>
+                  <span style={{ fontWeight: 600, color: "var(--ink)", textAlign: "right" }}>{v}</span>
+                </div>
+              ))}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 8,
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTop: "1px solid var(--line)",
+                  fontSize: ".85rem",
+                  color: "var(--success)",
+                }}
+              >
+                <span>🎁</span>
+                <div>
+                  <b>Amparo integral de cortesía</b> — incluido <b>gratis</b> para tus preaprobados:{" "}
+                  {money(AMPARO_INTEGRAL_CORTESIA)} por contrato ({money(amparoTotal)} en total).
+                </div>
+              </div>
+            </div>
+
             <p style={{ fontSize: ".9rem", marginBottom: 14 }}>
               Al ingresar, tus contratos entran a fianza. Si ya pasó el corte del mes (día{" "}
               {DIA_CORTE_INGRESOS}), quedan pendientes para el ingreso del próximo mes.
