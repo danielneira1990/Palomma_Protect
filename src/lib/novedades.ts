@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { leerConfig } from "@/lib/config";
 
 /** Siguiente consecutivo de novedad NOV-AAAA-NNN. */
 export async function siguienteSeqNovedad(supabase: SupabaseClient): Promise<number> {
@@ -43,6 +44,31 @@ export async function pctRetirosMes(
   const r = retirados ?? 0;
   const base = (activos ?? 0) + r;
   return { pct: base > 0 ? r / base : 0, retirados: r, base };
+}
+
+/**
+ * Auto-aprobación: aplica los retiros SOLICITADA cuya ventana ya venció (el
+ * cliente cree que "se está procesando"; si Palomma no actuó a tiempo, se
+ * aprueba solo). Los pausados (PENDIENTE_APROBACION) no cuentan.
+ * MVP sin scheduler: se llama al cargar el backoffice y el portal.
+ */
+export async function aplicarRetirosVencidos(supabase: SupabaseClient): Promise<number> {
+  const { ventanaRetiroHoras } = await leerConfig(supabase);
+  const limite = new Date(Date.now() - ventanaRetiroHoras * 3_600_000).toISOString();
+  const { data } = await supabase
+    .from("novedad")
+    .select("id, id_contrato")
+    .eq("tipo", "RETIRO")
+    .eq("estado", "SOLICITADA")
+    .lt("created_at", limite);
+  const vencidos = (data ?? []) as { id: string; id_contrato: string | null }[];
+  for (const v of vencidos) {
+    if (v.id_contrato) {
+      await supabase.from("contrato").update({ estado: "RETIRADO" }).eq("id", v.id_contrato);
+    }
+    await supabase.from("novedad").update({ estado: "APLICADA" }).eq("id", v.id);
+  }
+  return vencidos.length;
 }
 
 /** Inserta novedades de INGRESO (ya aplicadas) para los contratos recién creados. */

@@ -32,11 +32,14 @@ export async function guardarConfig(formData: FormData) {
   const ipcPct = num(formData.get("ipc"));
   const amarilloPct = num(formData.get("retiro_amarillo"));
   const rojoPct = num(formData.get("retiro_rojo"));
+  const ventana = num(formData.get("ventana_retiro"));
 
   if (ipcPct != null) await setParametro(supabase, CONFIG_CLAVES.ipc, String(ipcPct / 100));
   if (amarilloPct != null)
     await setParametro(supabase, CONFIG_CLAVES.retiroAmarillo, String(amarilloPct / 100));
   if (rojoPct != null) await setParametro(supabase, CONFIG_CLAVES.retiroRojo, String(rojoPct / 100));
+  if (ventana != null)
+    await setParametro(supabase, CONFIG_CLAVES.ventanaRetiroHoras, String(Math.round(ventana)));
 
   revalidatePath("/backoffice/configuracion");
 }

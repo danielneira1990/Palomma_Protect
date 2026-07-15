@@ -26,7 +26,7 @@ export function ConfigView({
   config,
   calendario,
 }: {
-  config: { ipcPct: string; amarilloPct: string; rojoPct: string };
+  config: { ipcPct: string; amarilloPct: string; rojoPct: string; ventanaRetiro: string };
   calendario: CalRow[];
 }) {
   const [cal, setCal] = useState(VACIO);
@@ -61,6 +61,12 @@ export function ConfigView({
             <div className="field">
               <label>Semáforo rojo (%) — retiros del mes</label>
               <input name="retiro_rojo" defaultValue={config.rojoPct} placeholder="3" />
+            </div>
+          </div>
+          <div className="row3">
+            <div className="field">
+              <label>Ventana de retiro (horas) — antes de aprobarse solo</label>
+              <input name="ventana_retiro" defaultValue={config.ventanaRetiro} placeholder="24" />
             </div>
           </div>
           <button type="submit" className="btn btn-purple">

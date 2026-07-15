@@ -8,18 +8,21 @@ export type Config = {
   ipc: number; // decimal (0.062 = 6,2%): tope de aumento de canon en vivienda
   retiroAmarillo: number; // umbral semáforo amarillo (0.025 = 2,5%)
   retiroRojo: number; // umbral semáforo rojo (0.03 = 3%)
+  ventanaRetiroHoras: number; // horas para actuar antes de que el retiro se apruebe solo
 };
 
 export const CONFIG_DEFAULT: Config = {
   ipc: 0,
   retiroAmarillo: 0.025,
   retiroRojo: 0.03,
+  ventanaRetiroHoras: 24,
 };
 
 export const CONFIG_CLAVES = {
   ipc: "IPC",
   retiroAmarillo: "RETIRO_AMARILLO",
   retiroRojo: "RETIRO_ROJO",
+  ventanaRetiroHoras: "VENTANA_RETIRO_HORAS",
 } as const;
 
 /** Día de corte por defecto si el mes no está en el calendario. */
@@ -38,6 +41,7 @@ export async function leerConfig(supabase: SupabaseClient): Promise<Config> {
     ipc: num(CONFIG_CLAVES.ipc, CONFIG_DEFAULT.ipc),
     retiroAmarillo: num(CONFIG_CLAVES.retiroAmarillo, CONFIG_DEFAULT.retiroAmarillo),
     retiroRojo: num(CONFIG_CLAVES.retiroRojo, CONFIG_DEFAULT.retiroRojo),
+    ventanaRetiroHoras: num(CONFIG_CLAVES.ventanaRetiroHoras, CONFIG_DEFAULT.ventanaRetiroHoras),
   };
 }
 

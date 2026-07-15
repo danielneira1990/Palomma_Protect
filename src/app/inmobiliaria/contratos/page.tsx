@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabase/server";
 import { leerConfig } from "@/lib/config";
+import { aplicarRetirosVencidos } from "@/lib/novedades";
 import { fmtTasaPct } from "@/lib/radicacion";
 import { ContratosView, type ContratoPortalRow } from "./ContratosView";
 
@@ -15,6 +16,9 @@ export default async function ContratosPage() {
       </div>
     );
   }
+
+  // Auto-aprobación de retiros vencidos (para el cliente es solo "se procesó").
+  await aplicarRetirosVencidos(supabase);
 
   const { data } = await supabase
     .from("contrato")

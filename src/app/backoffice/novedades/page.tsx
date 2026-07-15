@@ -1,7 +1,7 @@
 import { getSupabase } from "@/lib/supabase/server";
 import { leerConfig, semaforoRetiros } from "@/lib/config";
-import { pctRetirosMes } from "@/lib/novedades";
-import { NovedadesTable, type NovedadRow, type SemaforoInfo } from "./NovedadesTable";
+import { pctRetirosMes, aplicarRetirosVencidos } from "@/lib/novedades";
+import { NovedadesView, type NovedadRow, type SemaforoInfo } from "./NovedadesView";
 
 export default async function NovedadesPage() {
   const supabase = getSupabase();
@@ -12,20 +12,28 @@ export default async function NovedadesPage() {
   if (!supabase) {
     notConfigured = true;
   } else {
+    // Auto-aprobación de retiros cuya ventana ya venció (sin scheduler: al cargar).
+    await aplicarRetirosVencidos(supabase);
+
     const { data } = await supabase
       .from("novedad")
       .select(
-        "id, codigo, tipo, motivo, estado, actor, created_at, payload_anterior, payload_nuevo, id_inmobiliaria, inmobiliaria(razon_social), contrato(codigo, estudio(persona(nombre)))",
+        "id, codigo, tipo, motivo, estado, actor, created_at, payload_anterior, payload_nuevo, id_inmobiliaria, inmobiliaria(razon_social), contrato(codigo, canon, estudio(persona(nombre)))",
       )
       .order("created_at", { ascending: false });
     rows = (data ?? []) as unknown as NovedadRow[];
 
-    // Semáforo del mes por cada inmobiliaria con retiros pendientes.
+    // Semáforo del mes por inmobiliaria con retiros pendientes.
     const cfg = await leerConfig(supabase);
     const inmoPend = [
       ...new Set(
         rows
-          .filter((r) => r.tipo === "RETIRO" && r.estado === "SOLICITADA" && r.id_inmobiliaria)
+          .filter(
+            (r) =>
+              r.tipo === "RETIRO" &&
+              (r.estado === "SOLICITADA" || r.estado === "PENDIENTE_APROBACION") &&
+              r.id_inmobiliaria,
+          )
           .map((r) => r.id_inmobiliaria as string),
       ),
     ];
@@ -40,7 +48,7 @@ export default async function NovedadesPage() {
       <div className="head">
         <div>
           <h1>Novedades</h1>
-          <p>Ingresos, retiros y aumentos de la cartera afianzada.</p>
+          <p>Ingresos, retiros y aumentos de la cartera — por inmobiliaria.</p>
         </div>
       </div>
 
@@ -53,7 +61,7 @@ export default async function NovedadesPage() {
           </div>
         </div>
       ) : (
-        <NovedadesTable rows={rows} semaforos={semaforos} />
+        <NovedadesView rows={rows} semaforos={semaforos} />
       )}
     </>
   );
