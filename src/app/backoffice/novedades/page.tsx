@@ -1,16 +1,16 @@
-export default function CalendarioPage() {
+export default function NovedadesPage() {
   return (
     <>
       <div className="head">
         <div>
-          <h1>Calendario</h1>
-          <p>Módulo del backoffice de Palomma.</p>
+          <h1>Novedades</h1>
+          <p>Ingresos, retiros y aumentos de la cartera afianzada.</p>
         </div>
       </div>
       <div className="tablewrap">
         <div className="empty">
           <div className="ic">🧱</div>
-          <div className="msg">Módulo de Calendario — en construcción.</div>
+          <div className="msg">Módulo de Novedades — en construcción.</div>
         </div>
       </div>
     </>

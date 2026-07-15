@@ -5,12 +5,13 @@ import { usePathname } from "next/navigation";
 const NAV = [
   { href: "/backoffice/inmobiliarias", label: "Inmobiliarias" },
   { href: "/backoffice/estudios", label: "Estudios" },
-  { href: "/backoffice/usuarios", label: "Usuarios" },
-  { href: "/backoffice/calendario", label: "Calendario" },
   { href: "/backoffice/contratos", label: "Contratos" },
+  { href: "/backoffice/novedades", label: "Novedades" },
   { href: "/backoffice/avisos", label: "Avisos" },
   { href: "/backoffice/facturacion", label: "Facturación" },
   { href: "/backoffice/cobranza", label: "Cobranza" },
+  { href: "/backoffice/usuarios", label: "Usuarios" },
+  { href: "/backoffice/configuracion", label: "Configuración" },
 ];
 
 export function BackofficeNav() {

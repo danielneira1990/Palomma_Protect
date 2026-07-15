@@ -83,8 +83,8 @@ export function fmtTasaPct(tasa: number): string {
   );
 }
 
-export function ingresaEsteMes(hoy: Date = new Date()): boolean {
-  return hoy.getDate() <= DIA_CORTE_INGRESOS;
+export function ingresaEsteMes(hoy: Date = new Date(), dia: number = DIA_CORTE_INGRESOS): boolean {
+  return hoy.getDate() <= dia;
 }
 
 /** Tiempo transcurrido legible desde una fecha ISO. */
