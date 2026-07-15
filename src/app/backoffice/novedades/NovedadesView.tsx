@@ -72,6 +72,14 @@ export function NovedadesView({
   // Mantener el modal sincronizado si cambian los datos.
   const selActual = sel ? grupos.find((g) => g.id === sel.id) ?? null : null;
 
+  const totalTab = grupos.reduce((a, g) => a + g.items.length, 0);
+  const pendientes = grupos.reduce((a, g) => a + g.pendientes, 0);
+  const enAlerta = grupos.filter((g) => {
+    const s = semaforos[g.id];
+    return s && s.color !== "verde";
+  }).length;
+  const tabLabel = TABS.find((t) => t.key === tab)?.label ?? "";
+
   return (
     <>
       <div className="tabs" style={{ marginBottom: 14 }}>
@@ -87,6 +95,29 @@ export function NovedadesView({
             {t.label}
           </button>
         ))}
+      </div>
+
+      <div className="kpis" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+        <div className="kpi">
+          <div className="kt">{tabLabel} del mes</div>
+          <div className="kn">{totalTab}</div>
+        </div>
+        <div className="kpi">
+          <div className="kt">Inmobiliarias</div>
+          <div className="kn">{grupos.length}</div>
+        </div>
+        {tab === "RETIRO" ? (
+          <div className="kpi">
+            <div className="kt">Pendientes · alerta</div>
+            <div className="kn">{pendientes}</div>
+            <div className="kd">{enAlerta} inmobiliaria(s) en amarillo/rojo</div>
+          </div>
+        ) : (
+          <div className="kpi">
+            <div className="kt">Movimientos</div>
+            <div className="kn">{totalTab}</div>
+          </div>
+        )}
       </div>
 
       <div className="tablewrap">

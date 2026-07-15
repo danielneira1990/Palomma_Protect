@@ -18,6 +18,15 @@ export type ContratoPortalRow = {
   arrendatario: string | null;
 };
 
+export type ContratosKpis = {
+  nContratos: number;
+  valorAfianzado: number;
+  costoMensual: number;
+  tasaPromedioPct: string;
+  conIntegral: number;
+  conPenal: number;
+};
+
 const MOTIVOS: { v: string; l: string }[] = [
   { v: "TERMINACION_VENCIMIENTO", l: "Terminación por vencimiento" },
   { v: "MUTUO_ACUERDO", l: "Mutuo acuerdo" },
@@ -42,10 +51,17 @@ function diasParaVencer(fechaFin: string | null): number | null {
   return Math.floor((t - Date.now()) / 86_400_000);
 }
 
-export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipcPct: string }) {
+export function ContratosView({
+  rows,
+  ipcPct,
+  kpis,
+}: {
+  rows: ContratoPortalRow[];
+  ipcPct: string;
+  kpis: ContratosKpis;
+}) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [estado, setEstado] = useState("");
   const [tipo, setTipo] = useState("");
   const [vencePronto, setVencePronto] = useState(false);
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -56,7 +72,6 @@ export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipc
     return rows.filter((r) => {
       if (term && !`${r.arrendatario ?? ""} ${r.codigo ?? ""} ${r.inmueble_direccion ?? ""}`.toLowerCase().includes(term))
         return false;
-      if (estado && (r.estado ?? "") !== estado) return false;
       if (tipo && (r.tipo_destino ?? "").toUpperCase() !== tipo) return false;
       if (vencePronto) {
         const d = diasParaVencer(r.fecha_fin);
@@ -64,7 +79,7 @@ export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipc
       }
       return true;
     });
-  }, [rows, q, estado, tipo, vencePronto]);
+  }, [rows, q, tipo, vencePronto]);
 
   // Solo se pueden accionar los activos sin retiro en trámite.
   const accionables = filtered.filter((r) => r.estado === "ACTIVO" && !r.retiro_en_tramite);
@@ -85,6 +100,28 @@ export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipc
 
   return (
     <>
+      <div className="kpis">
+        <div className="kpi">
+          <div className="kt">Contratos activos</div>
+          <div className="kn">{kpis.nContratos}</div>
+        </div>
+        <div className="kpi">
+          <div className="kt">Valor afianzado</div>
+          <div className="kn">{money(kpis.valorAfianzado)}</div>
+          <div className="kd">canon protegido / mes</div>
+        </div>
+        <div className="kpi">
+          <div className="kt">Tasa promedio</div>
+          <div className="kn">{kpis.tasaPromedioPct}</div>
+          <div className="kd">ponderada por valor afianzado</div>
+        </div>
+        <div className="kpi">
+          <div className="kt">Coberturas</div>
+          <div className="kn">{kpis.conIntegral}</div>
+          <div className="kd">con integral · {kpis.conPenal} con cláusula penal</div>
+        </div>
+      </div>
+
       <div className="banner info">
         <span>🛡️</span>
         <div>
@@ -104,14 +141,6 @@ export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipc
               onChange={(e) => setQ(e.target.value)}
               placeholder="Arrendatario, código o dirección…"
             />
-          </div>
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label>Estado</label>
-            <select value={estado} onChange={(e) => setEstado(e.target.value)}>
-              <option value="">Todos</option>
-              <option value="ACTIVO">Activo</option>
-              <option value="RETIRADO">Retirado</option>
-            </select>
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
             <label>Tipo</label>

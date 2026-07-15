@@ -12,8 +12,9 @@ export default async function ContratosPage() {
     const { data } = await supabase
       .from("contrato")
       .select(
-        "id, codigo, num_contrato_arr, inmueble_direccion, inmueble_ciudad, tipo_destino, canon, valor_afianzado_canon, tasa_canon, costo_canon_neto, iva_canon_servicio, costo_canon_total, valor_afianzado_integral, estado, fecha_inicio, fecha_fin, fecha_ingreso, created_at, inmobiliaria(razon_social, codigo), estudio(persona(nombre, documento)), contrato_persona(rol, persona(nombre, documento))",
+        "id, codigo, num_contrato_arr, inmueble_direccion, inmueble_ciudad, tipo_destino, canon, valor_afianzado_canon, tasa_canon, costo_canon_neto, iva_canon_servicio, costo_canon_total, valor_afianzado_integral, linea_integral, linea_penal, estado, fecha_inicio, fecha_fin, fecha_ingreso, created_at, inmobiliaria(razon_social, codigo), estudio(persona(nombre, documento)), contrato_persona(rol, persona(nombre, documento))",
       )
+      .neq("estado", "RETIRADO")
       .order("created_at", { ascending: false });
     rows = (data ?? []) as unknown as ContratoRow[];
   }

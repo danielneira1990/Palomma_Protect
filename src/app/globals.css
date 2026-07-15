@@ -88,6 +88,7 @@ svg{display:block}
 .tab{padding:10px 14px;font-weight:600;font-size:.86rem;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:.12s}
 .tab:hover{color:var(--text)}
 .tab.on{color:var(--brand);border-bottom-color:var(--brand)}
+button.tab{background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit}
 
 /* ---- Table ---- */
 .tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:var(--sh-1);overflow:hidden}

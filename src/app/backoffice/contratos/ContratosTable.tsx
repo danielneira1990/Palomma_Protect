@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { money, fecha } from "@/lib/format";
 import { fmtTasaPct } from "@/lib/radicacion";
 
@@ -20,6 +20,8 @@ export type ContratoRow = {
   iva_canon_servicio: number | null;
   costo_canon_total: number | null;
   valor_afianzado_integral: number | null;
+  linea_integral: boolean | null;
+  linea_penal: boolean | null;
   estado: string | null;
   fecha_inicio: string | null;
   fecha_fin: string | null;
@@ -54,9 +56,43 @@ export function ContratosTable({
   const [sel, setSel] = useState<ContratoRow | null>(null);
 
   const totalAfianzado = rows.reduce((a, r) => a + (r.valor_afianzado_canon ?? 0), 0);
+  const kpis = useMemo(() => {
+    const ponderada = rows.reduce((a, r) => a + (r.tasa_canon ?? 0) * (r.valor_afianzado_canon ?? 0), 0);
+    return {
+      n: rows.length,
+      valor: totalAfianzado,
+      tasaPct: fmtTasaPct(totalAfianzado > 0 ? ponderada / totalAfianzado : 0),
+      integral: rows.filter((r) => r.linea_integral).length,
+      penal: rows.filter((r) => r.linea_penal).length,
+    };
+  }, [rows, totalAfianzado]);
 
   return (
     <>
+      {rows.length > 0 && (
+        <div className="kpis">
+          <div className="kpi">
+            <div className="kt">Contratos</div>
+            <div className="kn">{kpis.n}</div>
+          </div>
+          <div className="kpi">
+            <div className="kt">Valor afianzado</div>
+            <div className="kn">{money(kpis.valor)}</div>
+            <div className="kd">canon protegido / mes</div>
+          </div>
+          <div className="kpi">
+            <div className="kt">Tasa promedio</div>
+            <div className="kn">{kpis.tasaPct}</div>
+            <div className="kd">ponderada por valor afianzado</div>
+          </div>
+          <div className="kpi">
+            <div className="kt">Coberturas</div>
+            <div className="kn">{kpis.integral}</div>
+            <div className="kd">con integral · {kpis.penal} con cláusula penal</div>
+          </div>
+        </div>
+      )}
+
       <div className="tablewrap">
         {rows.length === 0 ? (
           <div className="empty">
