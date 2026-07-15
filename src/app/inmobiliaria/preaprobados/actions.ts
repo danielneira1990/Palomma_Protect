@@ -5,7 +5,7 @@ import { enviarCorreo, destinatarios } from "@/lib/email/client";
 import { correoCancelacion, correoIngreso } from "@/lib/email/proceso";
 import { ingresaEsteMes } from "@/lib/radicacion";
 import { materializarContratos } from "@/lib/contratos";
-import { leerConfig } from "@/lib/config";
+import { diaCorteDelMes } from "@/lib/config";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -90,7 +90,7 @@ export async function ingresarRadicacion(id: string) {
   }
   if (!id) throw new Error("Falta la radicación.");
 
-  const { diaCorte } = await leerConfig(supabase);
+  const diaCorte = await diaCorteDelMes(supabase);
   const esteMes = ingresaEsteMes(new Date(), diaCorte);
   const now = new Date().toISOString();
   if (esteMes) {

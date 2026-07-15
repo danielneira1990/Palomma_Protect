@@ -47,7 +47,6 @@ export default async function ConfiguracionPage() {
             ipcPct: pct(config.ipc),
             amarilloPct: pct(config.retiroAmarillo),
             rojoPct: pct(config.retiroRojo),
-            diaCorte: String(config.diaCorte),
           }}
           calendario={calendario}
         />

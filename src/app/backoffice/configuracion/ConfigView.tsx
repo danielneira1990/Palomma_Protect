@@ -26,7 +26,7 @@ export function ConfigView({
   config,
   calendario,
 }: {
-  config: { ipcPct: string; amarilloPct: string; rojoPct: string; diaCorte: string };
+  config: { ipcPct: string; amarilloPct: string; rojoPct: string };
   calendario: CalRow[];
 }) {
   const [cal, setCal] = useState(VACIO);
@@ -61,12 +61,6 @@ export function ConfigView({
             <div className="field">
               <label>Semáforo rojo (%) — retiros del mes</label>
               <input name="retiro_rojo" defaultValue={config.rojoPct} placeholder="3" />
-            </div>
-          </div>
-          <div className="row3">
-            <div className="field">
-              <label>Día de corte (cierra novedades/ingresos y factura)</label>
-              <input name="dia_corte" defaultValue={config.diaCorte} placeholder="20" />
             </div>
           </div>
           <button type="submit" className="btn btn-purple">

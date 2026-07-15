@@ -19,7 +19,7 @@ export default async function ContratosPage() {
   const { data } = await supabase
     .from("contrato")
     .select(
-      "id, codigo, inmueble_direccion, tipo_destino, canon, costo_canon_total, estado, created_at, estudio(persona(nombre))",
+      "id, codigo, inmueble_direccion, tipo_destino, canon, costo_canon_total, estado, fecha_fin, created_at, estudio(persona(nombre))",
     )
     .order("created_at", { ascending: false });
 
@@ -40,6 +40,7 @@ export default async function ContratosPage() {
       canon: number | null;
       costo_canon_total: number | null;
       estado: string | null;
+      fecha_fin: string | null;
       estudio: { persona: { nombre: string | null } | null } | null;
     }[]
   ).map((c) => ({
@@ -50,6 +51,7 @@ export default async function ContratosPage() {
     canon: c.canon,
     costo_canon_total: c.costo_canon_total,
     estado: c.estado,
+    fecha_fin: c.fecha_fin,
     retiro_en_tramite: enTramite.has(c.id),
     arrendatario: c.estudio?.persona?.nombre ?? null,
   }));

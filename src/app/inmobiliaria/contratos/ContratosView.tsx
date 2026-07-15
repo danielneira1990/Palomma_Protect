@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { money } from "@/lib/format";
-import { registrarRetiro, registrarAumento } from "./actions";
+import { money, fecha } from "@/lib/format";
+import { registrarRetiroMasivo, registrarAumentoMasivo } from "./actions";
 
 export type ContratoPortalRow = {
   id: string;
@@ -13,6 +13,7 @@ export type ContratoPortalRow = {
   canon: number | null;
   costo_canon_total: number | null;
   estado: string | null;
+  fecha_fin: string | null;
   retiro_en_tramite: boolean;
   arrendatario: string | null;
 };
@@ -26,37 +27,60 @@ const MOTIVOS: { v: string; l: string }[] = [
   { v: "OTRO", l: "Otro" },
 ];
 
+const DIAS_VENCE = 60;
+
 function titulo(n: string | null): string {
   if (!n) return "—";
   return n.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 }
 
+/** Días hasta la fecha de fin (negativo si ya venció). null si no hay fecha. */
+function diasParaVencer(fechaFin: string | null): number | null {
+  if (!fechaFin) return null;
+  const t = new Date(fechaFin).getTime();
+  if (isNaN(t)) return null;
+  return Math.floor((t - Date.now()) / 86_400_000);
+}
+
 export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipcPct: string }) {
   const router = useRouter();
-  const [modal, setModal] = useState<{ tipo: "retiro" | "aumento"; c: ContratoPortalRow } | null>(null);
-  const [descId, setDescId] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [estado, setEstado] = useState("");
+  const [tipo, setTipo] = useState("");
+  const [vencePronto, setVencePronto] = useState(false);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [modal, setModal] = useState<"aumento" | "retiro" | null>(null);
 
-  async function descargarCertificado(c: ContratoPortalRow) {
-    setDescId(c.id);
-    try {
-      const res = await fetch("/inmobiliaria/contratos/certificado", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contratoId: c.id }),
-      });
-      if (!res.ok) throw new Error();
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Certificado_${c.codigo ?? "fianza"}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      /* noop */
-    } finally {
-      setDescId(null);
-    }
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (term && !`${r.arrendatario ?? ""} ${r.codigo ?? ""} ${r.inmueble_direccion ?? ""}`.toLowerCase().includes(term))
+        return false;
+      if (estado && (r.estado ?? "") !== estado) return false;
+      if (tipo && (r.tipo_destino ?? "").toUpperCase() !== tipo) return false;
+      if (vencePronto) {
+        const d = diasParaVencer(r.fecha_fin);
+        if (d == null || d > DIAS_VENCE) return false;
+      }
+      return true;
+    });
+  }, [rows, q, estado, tipo, vencePronto]);
+
+  // Solo se pueden accionar los activos sin retiro en trámite.
+  const accionables = filtered.filter((r) => r.estado === "ACTIVO" && !r.retiro_en_tramite);
+  const selActivos = [...sel].filter((id) => accionables.some((r) => r.id === id));
+  const allChecked = accionables.length > 0 && selActivos.length === accionables.length;
+
+  function toggle(id: string) {
+    setSel((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+  function toggleAll() {
+    setSel(allChecked ? new Set() : new Set(accionables.map((r) => r.id)));
   }
 
   return (
@@ -64,16 +88,89 @@ export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipc
       <div className="banner info">
         <span>🛡️</span>
         <div>
-          Tu cartera afianzada. Desde aquí puedes <b>aumentar el canon</b> o <b>retirar</b> contratos.
-          Los retiros se reflejan en las próximas horas.
+          Tu cartera afianzada. Filtra los <b>próximos a vencer</b>, selecciona varios y{" "}
+          <b>renueva (sube el canon)</b> o <b>retira</b> en bloque. Los retiros se reflejan en las
+          próximas horas.
         </div>
       </div>
 
+      {/* Buscador + filtros */}
+      <div className="card card-pad" style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div className="field" style={{ marginBottom: 0, flex: "1 1 240px" }}>
+            <label>Buscar</label>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Arrendatario, código o dirección…"
+            />
+          </div>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Estado</label>
+            <select value={estado} onChange={(e) => setEstado(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="ACTIVO">Activo</option>
+              <option value="RETIRADO">Retirado</option>
+            </select>
+          </div>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>Tipo</label>
+            <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="VIVIENDA">Vivienda</option>
+              <option value="COMERCIO">Comercio</option>
+            </select>
+          </div>
+          <label
+            className="btn btn-outline btn-sm"
+            style={{ marginBottom: 0, background: vencePronto ? "var(--brand-tint)" : undefined }}
+          >
+            <input
+              type="checkbox"
+              checked={vencePronto}
+              onChange={(e) => setVencePronto(e.target.checked)}
+              style={{ marginRight: 6 }}
+            />
+            Próximos a vencer ({DIAS_VENCE} días)
+          </label>
+        </div>
+      </div>
+
+      {/* Barra de acción masiva */}
+      {selActivos.length > 0 && (
+        <div
+          className="banner"
+          style={{
+            alignItems: "center",
+            background: "var(--brand-tint)",
+            border: "1px solid rgba(64,18,171,.16)",
+            color: "var(--brand)",
+          }}
+        >
+          <span>✔️</span>
+          <div style={{ flex: 1 }}>{selActivos.length} contrato(s) seleccionado(s)</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-purple btn-sm" onClick={() => setModal("aumento")}>
+              Renovar / Aumentar canon
+            </button>
+            <button
+              className="btn btn-outline btn-sm"
+              style={{ color: "var(--danger)", borderColor: "#f1d4d4", background: "#fff" }}
+              onClick={() => setModal("retiro")}
+            >
+              Retirar
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="tablewrap">
-        {rows.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="empty">
             <div className="ic">🛡️</div>
-            <div className="msg">Aún no tienes contratos afianzados.</div>
+            <div className="msg">
+              {rows.length === 0 ? "Aún no tienes contratos afianzados." : "Ningún contrato con esos filtros."}
+            </div>
           </div>
         ) : (
           <>
@@ -81,94 +178,100 @@ export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipc
               <table>
                 <thead>
                   <tr>
+                    <th style={{ width: 34 }}>
+                      <input
+                        type="checkbox"
+                        checked={allChecked}
+                        onChange={toggleAll}
+                        aria-label="Seleccionar accionables"
+                      />
+                    </th>
                     <th>Fianza</th>
                     <th>Arrendatario</th>
                     <th>Inmueble</th>
                     <th>Canon</th>
-                    <th>Costo/mes</th>
+                    <th>Vence</th>
                     <th>Estado</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id}>
-                      <td className="mono">{r.codigo}</td>
-                      <td className="strong">{titulo(r.arrendatario)}</td>
-                      <td>{r.inmueble_direccion ?? "—"}</td>
-                      <td className="mono">{r.canon != null ? money(r.canon) : "—"}</td>
-                      <td className="mono">
-                        {r.costo_canon_total != null ? money(r.costo_canon_total) : "—"}
-                      </td>
-                      <td>
-                        {r.retiro_en_tramite ? (
-                          <span className="pill pill-warn">Retiro en trámite</span>
-                        ) : (
-                          <span className="pill pill-ok">{r.estado}</span>
-                        )}
-                      </td>
-                      <td>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 6,
-                            justifyContent: "flex-end",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <button
-                            className="btn btn-outline btn-sm"
-                            disabled={descId === r.id}
-                            onClick={() => descargarCertificado(r)}
-                          >
-                            {descId === r.id ? "…" : "📄 Certificado"}
-                          </button>
-                          {r.estado === "ACTIVO" && !r.retiro_en_tramite && (
-                            <>
-                              <button
-                                className="btn btn-outline btn-sm"
-                                onClick={() => setModal({ tipo: "aumento", c: r })}
-                              >
-                                Aumentar canon
-                              </button>
-                              <button
-                                className="btn btn-outline btn-sm"
-                                style={{ color: "var(--danger)", borderColor: "#f1d4d4" }}
-                                onClick={() => setModal({ tipo: "retiro", c: r })}
-                              >
-                                Retirar
-                              </button>
-                            </>
+                  {filtered.map((r) => {
+                    const d = diasParaVencer(r.fecha_fin);
+                    const accionable = r.estado === "ACTIVO" && !r.retiro_en_tramite;
+                    return (
+                      <tr key={r.id}>
+                        <td>
+                          {accionable && (
+                            <input
+                              type="checkbox"
+                              checked={sel.has(r.id)}
+                              onChange={() => toggle(r.id)}
+                              aria-label={`Seleccionar ${r.codigo ?? ""}`}
+                            />
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="mono">{r.codigo}</td>
+                        <td className="strong">{titulo(r.arrendatario)}</td>
+                        <td>{r.inmueble_direccion ?? "—"}</td>
+                        <td className="mono">{r.canon != null ? money(r.canon) : "—"}</td>
+                        <td>
+                          {r.fecha_fin ? (
+                            <span
+                              className={d != null && d <= DIAS_VENCE ? "pill pill-warn" : undefined}
+                            >
+                              {fecha(r.fecha_fin)}
+                              {d != null && d <= DIAS_VENCE ? (d < 0 ? " · vencido" : " · pronto") : ""}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td>
+                          {r.retiro_en_tramite ? (
+                            <span className="pill pill-warn">Retiro en trámite</span>
+                          ) : (
+                            <span className={r.estado === "ACTIVO" ? "pill pill-ok" : "pill pill-muted"}>
+                              {r.estado}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <CertBtn contrato={r} />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-            <div className="tfoot">{rows.length} contrato(s)</div>
+            <div className="tfoot">
+              {filtered.length} de {rows.length} contrato(s)
+              {selActivos.length > 0 && ` · ${selActivos.length} seleccionado(s)`}
+            </div>
           </>
         )}
       </div>
 
-      {modal?.tipo === "retiro" && (
-        <RetiroModal
-          contrato={modal.c}
-          onClose={() => setModal(null)}
-          onDone={() => {
-            setModal(null);
-            router.refresh();
-          }}
-        />
-      )}
-      {modal?.tipo === "aumento" && (
-        <AumentoModal
-          contrato={modal.c}
+      {modal === "aumento" && (
+        <BulkAumentoModal
+          ids={selActivos}
           ipcPct={ipcPct}
           onClose={() => setModal(null)}
           onDone={() => {
             setModal(null);
+            setSel(new Set());
+            router.refresh();
+          }}
+        />
+      )}
+      {modal === "retiro" && (
+        <BulkRetiroModal
+          ids={selActivos}
+          onClose={() => setModal(null)}
+          onDone={() => {
+            setModal(null);
+            setSel(new Set());
             router.refresh();
           }}
         />
@@ -177,26 +280,149 @@ export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipc
   );
 }
 
-function RetiroModal({
-  contrato,
+function CertBtn({ contrato }: { contrato: ContratoPortalRow }) {
+  const [busy, setBusy] = useState(false);
+  async function descargar() {
+    setBusy(true);
+    try {
+      const res = await fetch("/inmobiliaria/contratos/certificado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contratoId: contrato.id }),
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Certificado_${contrato.codigo ?? "fianza"}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* noop */
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button className="btn btn-outline btn-sm" disabled={busy} onClick={descargar}>
+      {busy ? "…" : "📄 Certificado"}
+    </button>
+  );
+}
+
+function BulkAumentoModal({
+  ids,
+  ipcPct,
   onClose,
   onDone,
 }: {
-  contrato: ContratoPortalRow;
+  ids: string[];
+  ipcPct: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [pct, setPct] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [res, setRes] = useState<{ aplicados: number; topados: number } | null>(null);
+
+  async function confirmar() {
+    setErr(null);
+    setBusy(true);
+    try {
+      setRes(await registrarAumentoMasivo(ids, pct));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "No se pudo aumentar el canon.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <div>
+            <h2>Renovar / Aumentar canon</h2>
+            <div className="sub">{ids.length} contrato(s)</div>
+          </div>
+          <button className="modal-x" onClick={onClose} aria-label="Cerrar">
+            ✕
+          </button>
+        </div>
+        <div className="modal-body">
+          {res ? (
+            <>
+              <div className="banner info" style={{ marginBottom: 16 }}>
+                <span>✅</span>
+                <div>
+                  Aumentamos el canon de <b>{res.aplicados}</b> contrato(s).
+                  {res.topados > 0 && (
+                    <> {res.topados} de vivienda se toparon al IPC ({ipcPct}).</>
+                  )}
+                </div>
+              </div>
+              <button className="btn btn-purple" onClick={onDone}>
+                Entendido
+              </button>
+            </>
+          ) : (
+            <>
+              {err && (
+                <div className="banner warn" style={{ marginBottom: 14 }}>
+                  <span>⚠️</span>
+                  <div>{err}</div>
+                </div>
+              )}
+              <p style={{ fontSize: ".85rem", marginBottom: 12, color: "var(--muted)" }}>
+                Se aplica el mismo % a los seleccionados. En <b>vivienda</b> se topa al{" "}
+                <b>IPC ({ipcPct})</b>; en comercio no hay tope.
+              </p>
+              <div className="field" style={{ marginBottom: 14 }}>
+                <label>% de aumento</label>
+                <input
+                  value={pct}
+                  onChange={(e) => setPct(e.target.value)}
+                  placeholder="ej: 6,2"
+                  inputMode="decimal"
+                  style={{ width: 140 }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-purple" disabled={busy || !pct} onClick={confirmar}>
+                  {busy ? "Aplicando…" : "Aplicar aumento"}
+                </button>
+                <button className="btn btn-outline" disabled={busy} onClick={onClose}>
+                  Cancelar
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BulkRetiroModal({
+  ids,
+  onClose,
+  onDone,
+}: {
+  ids: string[];
   onClose: () => void;
   onDone: () => void;
 }) {
   const [motivo, setMotivo] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [ok, setOk] = useState(false);
+  const [res, setRes] = useState<{ solicitados: number; omitidos: number } | null>(null);
 
   async function confirmar() {
     setErr(null);
     setBusy(true);
     try {
-      await registrarRetiro(contrato.id, motivo);
-      setOk(true);
+      setRes(await registrarRetiroMasivo(ids, motivo));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "No se pudo registrar el retiro.");
       setBusy(false);
@@ -208,23 +434,22 @@ function RetiroModal({
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <h2>Retirar contrato</h2>
-            <div className="sub">
-              {contrato.codigo} · {titulo(contrato.arrendatario)}
-            </div>
+            <h2>Retirar contratos</h2>
+            <div className="sub">{ids.length} contrato(s)</div>
           </div>
           <button className="modal-x" onClick={onClose} aria-label="Cerrar">
             ✕
           </button>
         </div>
         <div className="modal-body">
-          {ok ? (
+          {res ? (
             <>
               <div className="banner info" style={{ marginBottom: 16 }}>
                 <span>✅</span>
                 <div>
-                  Registramos tu solicitud de retiro. <b>Se verá reflejado en las próximas horas</b>{" "}
-                  (máximo 1 día hábil).
+                  Registramos <b>{res.solicitados}</b> retiro(s). <b>Se reflejan en las próximas
+                  horas</b> (máximo 1 día hábil).
+                  {res.omitidos > 0 && <> {res.omitidos} se omitieron (ya en trámite).</>}
                 </div>
               </div>
               <button className="btn btn-purple" onClick={onDone}>
@@ -265,86 +490,6 @@ function RetiroModal({
               </div>
             </>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AumentoModal({
-  contrato,
-  ipcPct,
-  onClose,
-  onDone,
-}: {
-  contrato: ContratoPortalRow;
-  ipcPct: string;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [canon, setCanon] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const esVivienda = (contrato.tipo_destino ?? "").toUpperCase() === "VIVIENDA";
-
-  async function confirmar() {
-    setErr(null);
-    setBusy(true);
-    try {
-      await registrarAumento(contrato.id, canon);
-      onDone();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "No se pudo aumentar el canon.");
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <div>
-            <h2>Aumentar canon</h2>
-            <div className="sub">
-              {contrato.codigo} · {titulo(contrato.arrendatario)}
-            </div>
-          </div>
-          <button className="modal-x" onClick={onClose} aria-label="Cerrar">
-            ✕
-          </button>
-        </div>
-        <div className="modal-body">
-          {err && (
-            <div className="banner warn" style={{ marginBottom: 14 }}>
-              <span>⚠️</span>
-              <div>{err}</div>
-            </div>
-          )}
-          <div style={{ fontSize: ".85rem", marginBottom: 12 }}>
-            Canon actual: <b>{contrato.canon != null ? money(contrato.canon) : "—"}</b>
-            {esVivienda && (
-              <div style={{ color: "var(--muted)", marginTop: 4 }}>
-                🏠 Es vivienda: el aumento no puede superar el <b>IPC ({ipcPct})</b>.
-              </div>
-            )}
-          </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Nuevo canon mensual</label>
-            <input
-              value={canon}
-              onChange={(e) => setCanon(e.target.value)}
-              placeholder="ej: 1500000"
-              inputMode="numeric"
-            />
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn-purple" disabled={busy || !canon} onClick={confirmar}>
-              {busy ? "Aplicando…" : "Aumentar canon"}
-            </button>
-            <button className="btn btn-outline" disabled={busy} onClick={onClose}>
-              Cancelar
-            </button>
-          </div>
         </div>
       </div>
     </div>
