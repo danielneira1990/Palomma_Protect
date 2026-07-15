@@ -165,6 +165,8 @@ export function ContratosView({
         </div>
       </div>
 
+      <AdminMasiva onDone={() => router.refresh()} />
+
       {/* Barra de acción masiva */}
       {selActivos.length > 0 && (
         <div
@@ -306,6 +308,103 @@ export function ContratosView({
         />
       )}
     </>
+  );
+}
+
+function AdminMasiva({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [errores, setErrores] = useState<string[]>([]);
+  const [ok, setOk] = useState<string | null>(null);
+
+  async function descargar() {
+    setBusy(true);
+    setErrores([]);
+    setOk(null);
+    try {
+      const res = await fetch("/inmobiliaria/contratos/masivo", { method: "POST" });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Administracion_Masiva.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setErrores(["No se pudo generar el formato."]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function subir(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setErrores([]);
+    setOk(null);
+    try {
+      const fd = new FormData();
+      fd.append("archivo", file);
+      const res = await fetch("/inmobiliaria/contratos/masivo/subir", { method: "POST", body: fd });
+      const j = (await res.json()) as {
+        ok: boolean;
+        errores?: string[];
+        aumentos?: number;
+        retiros?: number;
+      };
+      if (j.ok) {
+        setOk(`Listo: ${j.aumentos ?? 0} aumento(s) y ${j.retiros ?? 0} retiro(s) procesados.`);
+        onDone();
+      } else {
+        setErrores(j.errores ?? ["No se pudo procesar el archivo."]);
+      }
+    } catch {
+      setErrores(["Error subiendo el archivo."]);
+    } finally {
+      setBusy(false);
+      e.target.value = "";
+    }
+  }
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontWeight: 700 }}>Administración masiva por archivo</div>
+          <div style={{ fontSize: ".82rem", color: "var(--muted)" }}>
+            Descarga el formato con tus contratos, marca la <b>acción</b> (AUMENTO / RETIRO) por
+            fila y súbelo. Validamos antes de aplicar.
+          </div>
+        </div>
+        <button className="btn btn-outline" disabled={busy} onClick={descargar}>
+          ⬇️ Descargar formato
+        </button>
+        <label className="btn btn-purple" style={{ cursor: busy ? "default" : "pointer" }}>
+          {busy ? "Procesando…" : "⬆️ Subir formato"}
+          <input type="file" accept=".xlsx" hidden disabled={busy} onChange={subir} />
+        </label>
+      </div>
+      {ok && (
+        <div className="banner info" style={{ marginTop: 12, marginBottom: 0 }}>
+          <span>✅</span>
+          <div>{ok}</div>
+        </div>
+      )}
+      {errores.length > 0 && (
+        <div className="banner warn" style={{ marginTop: 12, marginBottom: 0 }}>
+          <span>⚠️</span>
+          <div>
+            <b>Corrige y vuelve a subir:</b>
+            <ul style={{ margin: "6px 0 0 16px" }}>
+              {errores.map((er, i) => (
+                <li key={i}>{er}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

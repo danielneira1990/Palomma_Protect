@@ -40,6 +40,7 @@ function titulo(n: string | null): string {
 function estadoPill(estado: string | null) {
   const e = (estado ?? "").toUpperCase();
   if (e === "ACTIVO") return "pill pill-ok";
+  if (e === "EN_RETIRO") return "pill pill-warn";
   if (e === "POR_VENCER") return "pill pill-warn";
   if (e === "SUSPENDIDO") return "pill pill-warn";
   if (e === "TERMINADO" || e === "RETIRADO") return "pill pill-muted";

@@ -20,22 +20,15 @@ export default async function ContratosPage() {
   // Auto-aprobación de retiros vencidos (para el cliente es solo "se procesó").
   await aplicarRetirosVencidos(supabase);
 
-  // Solo cartera ACTIVA (los retirados se ven en Novedades, no aquí).
+  // Cartera vigente: activos + los que están EN_RETIRO (en trámite). Solo se
+  // ocultan los ya RETIRADO (esos se ven en Novedades).
   const { data } = await supabase
     .from("contrato")
     .select(
       "id, codigo, inmueble_direccion, tipo_destino, canon, valor_afianzado_canon, tasa_canon, costo_canon_total, linea_integral, linea_penal, estado, fecha_fin, created_at, estudio(persona(nombre))",
     )
-    .eq("estado", "ACTIVO")
+    .neq("estado", "RETIRADO")
     .order("created_at", { ascending: false });
-
-  // Contratos con retiro pendiente (SOLICITADA).
-  const { data: pend } = await supabase
-    .from("novedad")
-    .select("id_contrato")
-    .eq("tipo", "RETIRO")
-    .eq("estado", "SOLICITADA");
-  const enTramite = new Set(((pend ?? []) as { id_contrato: string | null }[]).map((p) => p.id_contrato));
 
   const raw = (data ?? []) as unknown as {
     id: string;
@@ -62,7 +55,7 @@ export default async function ContratosPage() {
     costo_canon_total: c.costo_canon_total,
     estado: c.estado,
     fecha_fin: c.fecha_fin,
-    retiro_en_tramite: enTramite.has(c.id),
+    retiro_en_tramite: c.estado === "EN_RETIRO",
     arrendatario: c.estudio?.persona?.nombre ?? null,
   }));
 

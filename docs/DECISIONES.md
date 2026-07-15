@@ -219,6 +219,56 @@ ingreso.
 
 ---
 
+## Contrato de fianza (nace al ingresar)
+
+El "ingreso a fianza" dejó de ser solo un flag: al ingresar se **materializa el
+`contrato`** real (`src/lib/contratos.ts`) desde el detalle del Excel persistido
+(`radicacion.detalle`, migración 0016).
+
+- **Líneas y costos:** línea canon (valor afianzado = canon, costo = canon × tasa de la
+  inmobiliaria + IVA 19%) y **amparo integral de cortesía** (gratis para preaprobados).
+  Se crean los `contrato_persona` (arrendatario del estudio + codeudores del Excel).
+- **Certificado de fianza** por contrato (`src/lib/google/certificadoFianza.ts`): PDF
+  on-demand desde plantilla de Google Docs; se genera, exporta y borra la copia temporal
+  (no deja basura en Drive). El propietario no se pide: la inmobiliaria firma **como
+  mandataria** (así consta en el contrato marco).
+- **Tasa por sucursal:** `inmobiliaria.tasa_canon`, con default por sucursal (Medellín
+  1,35% · Bogotá 2,04% · resto 1,66%) editable en el modal. La KPI del portal y el
+  resumen del ingreso la leen de ahí. KPIs de cartera con **tasa promedio ponderada por
+  valor afianzado**.
+
+---
+
+## Novedades y retención de retiros
+
+Los movimientos de la cartera (INGRESO, RETIRO, AUMENTO) quedan en `novedad`, clasificados
+por inmobiliaria (`src/app/backoffice/novedades`, tabs + drill-down a página de detalle).
+
+- **Estado intermedio (migración 0018):** al pedir un retiro el contrato **no sale de
+  una** → pasa a `EN_RETIRO`. Solo a `RETIRADO` cuando se aplica; vuelve a `ACTIVO` si se
+  cancela (retención).
+- **Retención invisible para el cliente:** el retiro queda pendiente (el cliente solo ve
+  "en trámite / próximas horas"). Palomma tiene la ventana para **aplicar, cancelar
+  (retener), pausar o mejorar términos** (tasa, amparo integral / cláusula penal gratis).
+- **Auto-aprobación:** si nadie actúa en `VENTANA_RETIRO_HORAS`, el retiro se aplica solo.
+  MVP sin scheduler: se ejecuta **al cargar** back y portal; en prod sería un cron.
+- **Semáforo por inmobiliaria** (% de retiros del mes por número de contratos): verde
+  <2,5% · amarillo 2,5–3% · rojo >3% (umbrales configurables).
+
+---
+
+## Administración masiva y configuración
+
+- **Administración masiva por archivo** (portal, `contratos/masivo`): la inmobiliaria
+  descarga un formato con sus contratos, marca por fila la acción (AUMENTO % / RETIRO +
+  motivo) y lo sube; se **valida** (contratos activos, acción y valores; tope IPC en
+  vivienda) antes de aplicar. Convive con la selección por checkboxes.
+- **Configuración** (`src/lib/config.ts` + `parametro`): IPC, umbrales del semáforo y
+  ventana de retiro. El **día de corte** vive solo en el `calendario_operativo` (un día al
+  mes que cierra novedades/ingresos y dispara la facturación); el ingreso lo lee de ahí.
+
+---
+
 ## Deuda técnica conocida
 
 - **Generación del contrato es "mejor esfuerzo":** si la llamada a Google falla,
@@ -232,3 +282,8 @@ ingreso.
   Simple y suficiente para el MVP, pero **dos creaciones simultáneas pueden chocar** en
   el mismo número (el `codigo` es `unique` → una fallaría). Blindar con una secuencia de
   Postgres cuando el volumen lo amerite.
+
+- **Auto-aprobación de retiros sin scheduler:** hoy se ejecuta al cargar el backoffice o
+  el portal (`aplicarRetirosVencidos`). Si nadie abre esas vistas, un retiro vencido no se
+  aplica hasta la siguiente carga. En producción debe ser un **cron** (pg_cron / Vercel
+  cron) que corra cada cierto tiempo.

@@ -76,6 +76,15 @@ export async function registrarRetiroMasivo(
   });
   await supabase.from("novedad").insert(filas);
 
+  // Estado intermedio: no sale de una, queda "en retiro" hasta aplicar/cancelar.
+  await supabase
+    .from("contrato")
+    .update({ estado: "EN_RETIRO" })
+    .in(
+      "id",
+      elegibles.map((c) => c.id),
+    );
+
   revalidatePath("/inmobiliaria/contratos");
   return { solicitados: elegibles.length, omitidos: contratoIds.length - elegibles.length };
 }

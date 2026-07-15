@@ -1,10 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { fecha, money } from "@/lib/format";
+import Link from "next/link";
 import type { Semaforo } from "@/lib/config";
-import { aplicarRetiro, cancelarRetiro, pausarRetiro, aplicarRetencion } from "./actions";
 
 export type NovedadRow = {
   id: string;
@@ -39,10 +37,6 @@ const COLOR: Record<Semaforo, { bg: string; label: string }> = {
   rojo: { bg: "var(--danger)", label: "Riesgo" },
 };
 
-function titulo(n: string | null | undefined): string {
-  if (!n) return "—";
-  return n.toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase());
-}
 const pctTxt = (p: number) => `${(p * 100).toLocaleString("es-CO", { maximumFractionDigits: 1 })}%`;
 
 type Grupo = { id: string; razon: string; items: NovedadRow[]; pendientes: number };
@@ -68,9 +62,6 @@ export function NovedadesView({
     }
     return [...m.values()].sort((a, b) => b.items.length - a.items.length);
   }, [rows, tab]);
-
-  // Mantener el modal sincronizado si cambian los datos.
-  const selActual = sel ? grupos.find((g) => g.id === sel.id) ?? null : null;
 
   const totalTab = grupos.reduce((a, g) => a + g.items.length, 0);
   const pendientes = grupos.reduce((a, g) => a + g.pendientes, 0);
@@ -124,7 +115,7 @@ export function NovedadesView({
         {grupos.length === 0 ? (
           <div className="empty">
             <div className="ic">🗂️</div>
-            <div className="msg">No hay {TABS.find((t) => t.key === tab)?.label.toLowerCase()} este mes.</div>
+            <div className="msg">No hay {tabLabel.toLowerCase()} este mes.</div>
           </div>
         ) : (
           <>
@@ -168,7 +159,7 @@ export function NovedadesView({
                             </td>
                           </>
                         )}
-                        <td style={{ textAlign: "right", color: "var(--muted)" }}>ver detalle →</td>
+                        <td style={{ textAlign: "right", color: "var(--muted)" }}>resumen →</td>
                       </tr>
                     );
                   })}
@@ -180,187 +171,77 @@ export function NovedadesView({
         )}
       </div>
 
-      {selActual && (
-        <DetalleModal grupo={selActual} tab={tab} onClose={() => setSel(null)} />
+      {sel && (
+        <ResumenModal
+          grupo={grupos.find((g) => g.id === sel.id) ?? sel}
+          tab={tab}
+          tabLabel={tabLabel}
+          semaforo={semaforos[sel.id]}
+          onClose={() => setSel(null)}
+        />
       )}
     </>
   );
 }
 
-function DetalleModal({ grupo, tab, onClose }: { grupo: Grupo; tab: string; onClose: () => void }) {
+function ResumenModal({
+  grupo,
+  tab,
+  tabLabel,
+  semaforo,
+  onClose,
+}: {
+  grupo: Grupo;
+  tab: string;
+  tabLabel: string;
+  semaforo: SemaforoInfo | undefined;
+  onClose: () => void;
+}) {
+  const aplicados = grupo.items.filter((i) => i.estado === "APLICADA").length;
+  const col = semaforo ? COLOR[semaforo.color] : null;
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
             <h2>{grupo.razon}</h2>
-            <div className="sub">
-              {grupo.items.length} {TABS.find((t) => t.key === tab)?.label.toLowerCase()} este mes
-            </div>
+            <div className="sub">Resumen de {tabLabel.toLowerCase()} del mes</div>
           </div>
           <button className="modal-x" onClick={onClose} aria-label="Cerrar">
             ✕
           </button>
         </div>
         <div className="modal-body">
-          {grupo.items.map((n) =>
-            tab === "RETIRO" ? (
-              <RetiroItem key={n.id} n={n} />
-            ) : (
-              <div className="docbox" key={n.id}>
-                <span className="di">{tab === "INGRESO" ? "➕" : "📈"}</span>
-                <div className="dinfo">
-                  <div className="dt">
-                    {titulo(n.contrato?.estudio?.persona?.nombre)} · {n.contrato?.codigo ?? "—"}
-                  </div>
-                  <div className="dd">
-                    {tab === "AUMENTO" && n.payload_nuevo?.canon != null
-                      ? `${money(n.payload_anterior?.canon ?? 0)} → ${money(n.payload_nuevo.canon)}`
-                      : "Ingreso a fianza"}{" "}
-                    · {fecha(n.created_at)}
-                  </div>
-                </div>
-                <span className="pill pill-ok">{n.estado}</span>
-              </div>
-            ),
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function estadoRetiroPill(estado: string | null) {
-  if (estado === "APLICADA") return "pill pill-ok";
-  if (estado === "RECHAZADA") return "pill pill-muted";
-  if (estado === "PENDIENTE_APROBACION") return "pill pill-info";
-  return "pill pill-warn"; // SOLICITADA
-}
-
-function RetiroItem({ n }: { n: NovedadRow }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [retencion, setRetencion] = useState(false);
-  const [tasa, setTasa] = useState("");
-  const [integral, setIntegral] = useState("");
-  const [penal, setPenal] = useState("");
-
-  const gestionable = n.estado === "SOLICITADA" || n.estado === "PENDIENTE_APROBACION";
-
-  async function run(fn: () => Promise<void>) {
-    setBusy(true);
-    try {
-      await fn();
-      router.refresh();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div
-      className="docbox"
-      style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span className="di">🚪</span>
-        <div className="dinfo">
-          <div className="dt">
-            {titulo(n.contrato?.estudio?.persona?.nombre)} · {n.contrato?.codigo ?? "—"}
-          </div>
-          <div className="dd">
-            {(n.motivo ?? "—").replace(/_/g, " ").toLowerCase()} · {fecha(n.created_at)}
-            {n.estado === "PENDIENTE_APROBACION" && " · en retención (pausado)"}
-          </div>
-        </div>
-        <span className={estadoRetiroPill(n.estado)}>{n.estado}</span>
-      </div>
-
-      {gestionable && (
-        <>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <button className="btn btn-purple btn-sm" disabled={busy} onClick={() => run(() => aplicarRetiro(n.id))}>
-              Aplicar retiro
-            </button>
-            <button
-              className="btn btn-outline btn-sm"
-              disabled={busy}
-              onClick={() => run(() => cancelarRetiro(n.id))}
-            >
-              Cancelar (retener)
-            </button>
-            {n.estado === "SOLICITADA" && (
-              <button
-                className="btn btn-outline btn-sm"
-                disabled={busy}
-                onClick={() => run(() => pausarRetiro(n.id))}
-              >
-                Pausar
-              </button>
+          <dl className="dl">
+            <dt>{tabLabel} este mes</dt>
+            <dd>{grupo.items.length}</dd>
+            <dt>Aplicados</dt>
+            <dd>{aplicados}</dd>
+            {tab === "RETIRO" && (
+              <>
+                <dt>Pendientes</dt>
+                <dd>{grupo.pendientes}</dd>
+                <dt>Semáforo del mes</dt>
+                <dd>
+                  {semaforo && col ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 99, background: col.bg }} />
+                      {pctTxt(semaforo.pct)} · {col.label}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </>
             )}
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => setRetencion((v) => !v)}
-              style={{ marginLeft: "auto" }}
-            >
-              {retencion ? "Ocultar retención" : "Retención / mejorar términos"}
-            </button>
-          </div>
+          </dl>
 
-          {retencion && (
-            <div
-              style={{
-                background: "var(--bg-2)",
-                border: "1px solid var(--line)",
-                borderRadius: 10,
-                padding: 12,
-              }}
-            >
-              <div style={{ fontSize: ".8rem", color: "var(--muted)", marginBottom: 8 }}>
-                Mejora los términos para retener (invisible para la inmobiliaria).
-              </div>
-              <div className="row3">
-                <div className="field" style={{ marginBottom: 8 }}>
-                  <label>Nueva tasa (%)</label>
-                  <input value={tasa} onChange={(e) => setTasa(e.target.value)} placeholder="ej: 1,20" />
-                </div>
-                <div className="field" style={{ marginBottom: 8 }}>
-                  <label>Amparo integral gratis ($)</label>
-                  <input value={integral} onChange={(e) => setIntegral(e.target.value)} placeholder="1000000" />
-                </div>
-                <div className="field" style={{ marginBottom: 8 }}>
-                  <label>Cláusula penal gratis ($)</label>
-                  <input value={penal} onChange={(e) => setPenal(e.target.value)} placeholder="0" />
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  className="btn btn-purple btn-sm"
-                  disabled={busy}
-                  onClick={() =>
-                    run(() =>
-                      aplicarRetencion(n.id, { nuevaTasaPct: tasa, integral, penal, cancelar: true }),
-                    )
-                  }
-                >
-                  Aplicar y retener
-                </button>
-                <button
-                  className="btn btn-outline btn-sm"
-                  disabled={busy}
-                  onClick={() =>
-                    run(() =>
-                      aplicarRetencion(n.id, { nuevaTasaPct: tasa, integral, penal, cancelar: false }),
-                    )
-                  }
-                >
-                  Aplicar y pausar (sigo negociando)
-                </button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
+          <Link href={`/backoffice/novedades/${grupo.id}?tipo=${tab}`} className="btn btn-purple">
+            Ver detalle uno a uno →
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

@@ -14,29 +14,37 @@ Aplicativo de la fianza de arrendamiento de Palomma. **Next.js + Supabase**, pen
 
 ## Estado del MVP
 
-Flujo E2E funcional, de la creación de la inmobiliaria hasta el ingreso a fianza:
+Flujo E2E funcional, del alta de la inmobiliaria a la gestión de la cartera afianzada.
+Detalle de decisiones en [`docs/DECISIONES.md`](docs/DECISIONES.md) y del modelo de
+datos en [`docs/TABLAS.md`](docs/TABLAS.md).
 
-- **Alta de inmobiliaria** (backoffice): lista + creación con autollenado desde Pay
-  (⚡ *Traer datos de Pay* consulta `rentals_merchants` de Tinybird por `merchant_id`).
-  Genera código `IMB-AAAA-NNN`, arma el **Contrato Marco** desde una plantilla de
-  Google Docs → PDF en Drive y lo envía por correo. Modal de gestión: descargar/ver
-  contrato, subir el firmado (**activa** la inmobiliaria + correo de bienvenida),
-  cambiar estado (activar/suspender/dar de baja) y editar contacto.
-- **Motor de scoring / preaprobados**: al activarse la inmobiliaria se dispara el
-  modelo de credit scoring (servicio Python sobre datos de pago de Tinybird). Los
-  clientes **PRIME + confianza alta + activos** quedan preaprobados y aparecen en el
-  portal.
-- **Radicación / inducción** (portal inmobiliaria): seleccionar preaprobados →
-  descargar Excel prellenado (+correo) → subirlo y validarlo → generar **paz y salvo**
-  (con valor asegurado) → firmar y subir → **visto bueno** del analista → la
-  inmobiliaria confirma el **ingreso a fianza**. Barra de progreso por etapas,
-  reanudar proceso y cancelar.
-- **Backoffice · Procesos de inducción**: tabla con etapa, avance y tiempo; modal con
-  documentos y botón de *visto bueno* (Palomma **solo aprueba**, nunca ingresa por el
-  cliente).
-- Esqueleto Next.js (App Router, TypeScript) con el design system de Pay; migraciones
-  SQL en `supabase/migrations/` (0001 esquema base → 0011).
-- Módulos aún placeholder: Contratos, Avisos, Siniestros, Facturación, Cobranza.
+- **Alta de inmobiliaria** (backoffice): creación con autollenado desde Pay
+  (`rentals_merchants` de Tinybird por `merchant_id`), **Contrato Marco** generado en
+  Google Docs → PDF, y **tasa de fianza por sucursal** (editable en el modal). Subir el
+  firmado activa la inmobiliaria + bienvenida + scoring.
+- **Motor de scoring / preaprobados**: al activarse corre el modelo (servicio Python
+  sobre Tinybird); los PRIME + confianza alta + activos quedan preaprobados.
+- **Radicación / inducción** (self-service, sin validación interna): seleccionar
+  preaprobados → Excel prellenado → subir y **validar** → **declaración de paz y salvo**
+  → firma **AUCO** (validada contra el representante legal) → la inmobiliaria hace el
+  **ingreso a fianza** (regla de corte del calendario). Los rebotes quedan visibles para
+  el backoffice.
+- **Contratos** (nace al ingresar): se materializa el `contrato` real + `contrato_persona`
+  (arrendatario + codeudores) con los datos del Excel; líneas canon + amparo integral de
+  cortesía; costos por la tasa. Tab en el back y **portal con KPIs, buscador, filtros
+  (próximos a vencer) y acciones masivas** (renovar/aumentar % con tope IPC, retirar) —
+  por selección o por **archivo plano** (descargar/subir formato, validado). Cada contrato
+  trae su **certificado de fianza** (PDF desde plantilla).
+- **Novedades** (backoffice): ingresos, retiros y aumentos **por inmobiliaria** (tabs +
+  KPIs), con drill-down al detalle uno-a-uno. Los **retiros** dejan el contrato en estado
+  intermedio `EN_RETIRO` y entran a una **retención invisible**: Palomma puede cambiar
+  tasa, dar amparos gratis, cancelar o pausar; si no actúa en la ventana configurable, el
+  retiro **se auto-aprueba**. El cliente solo ve "en trámite".
+- **Configuración** (backoffice): IPC, umbrales del semáforo de retiros, ventana de
+  retiro y **calendario operativo** mes a mes.
+- Esqueleto Next.js (App Router, TS) con el design system de Pay; migraciones SQL en
+  `supabase/migrations/` (0001 → 0018).
+- Módulos aún placeholder: Avisos/Siniestros, Facturación, Cobranza.
 
 ## Cómo correrlo
 

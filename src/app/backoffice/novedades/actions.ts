@@ -33,11 +33,15 @@ export async function aplicarRetiro(novedadId: string) {
   revalidatePath("/backoffice/contratos");
 }
 
-/** Cancela el retiro (se retuvo): el contrato sigue ACTIVO. Invisible para el cliente. */
+/** Cancela el retiro (se retuvo): el contrato vuelve a ACTIVO. Invisible para el cliente. */
 export async function cancelarRetiro(novedadId: string) {
-  const { supabase } = await retiro(novedadId);
+  const { supabase, nov } = await retiro(novedadId);
+  if (nov.id_contrato) {
+    await supabase.from("contrato").update({ estado: "ACTIVO" }).eq("id", nov.id_contrato);
+  }
   await supabase.from("novedad").update({ estado: "RECHAZADA" }).eq("id", novedadId);
   revalidatePath("/backoffice/novedades");
+  revalidatePath("/backoffice/contratos");
 }
 
 /** Pausa el retiro mientras se negocia (detiene la ventana de auto-aprobación). */
@@ -97,6 +101,9 @@ export async function aplicarRetencion(
     update.costo_penal_total = 0;
   }
 
+  // Si se retiene (cancelar), el contrato vuelve a ACTIVO; si solo se pausa para
+  // seguir negociando, se mantiene EN_RETIRO.
+  if (opts.cancelar) update.estado = "ACTIVO";
   if (Object.keys(update).length) {
     await supabase.from("contrato").update(update).eq("id", c.id);
   }
