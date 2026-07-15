@@ -15,8 +15,9 @@ Aplicativo de la fianza de arrendamiento de Palomma. **Next.js + Supabase**, pen
 ## Estado del MVP
 
 Flujo E2E funcional, del alta de la inmobiliaria a la gestión de la cartera afianzada.
-Detalle de decisiones en [`docs/DECISIONES.md`](docs/DECISIONES.md) y del modelo de
-datos en [`docs/TABLAS.md`](docs/TABLAS.md).
+Detalle de decisiones en [`docs/DECISIONES.md`](docs/DECISIONES.md), del modelo de
+datos en [`docs/TABLAS.md`](docs/TABLAS.md), y del plan para integrarlo como módulo
+dentro de Pay en [`docs/INTEGRACION_PAY.md`](docs/INTEGRACION_PAY.md).
 
 - **Alta de inmobiliaria** (backoffice): creación con autollenado desde Pay
   (`rentals_merchants` de Tinybird por `merchant_id`), **Contrato Marco** generado en

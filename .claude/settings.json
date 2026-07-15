@@ -10,7 +10,13 @@
       "mcp__claude_ai_Google_Drive__get_file_metadata",
       "Bash(node _drive_orphans.mjs)",
       "Bash(node _drive_orphans.mjs apply)",
-      "Bash(rm -f _drive_orphans.mjs)"
+      "Bash(rm -f _drive_orphans.mjs)",
+      "Bash(ls \"C:/Users/danie/.claude/projects/c--Users-danie-Documents-palomma-protect/memory/\" 2>/dev/null && echo \"---MEMORY.md---\" && cat \"C:/Users/danie/.claude/projects/c--Users-danie-Documents-palomma-protect/memory/MEMORY.md\" 2>/dev/null || echo \"\\(memoria vacía / sin MEMORY.md\\)\")",
+      "Read(//c/Users/danie/.claude/projects/c--Users-danie-Documents-palomma-protect/memory/**)",
+      "Bash(uv --version)",
+      "Bash(curl -s -m 2 http://127.0.0.1:8000/health)",
+      "Bash(uv run *)",
+      "Bash(curl -s -m 25 http://127.0.0.1:8000/merchant/indika)"
     ]
   }
 }
