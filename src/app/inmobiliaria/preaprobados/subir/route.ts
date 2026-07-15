@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { getSupabase } from "@/lib/supabase/server";
 import { carpetaRadicacion } from "@/lib/radicacionDrive";
 import { subirArchivo } from "@/lib/google/drive";
+import type { FilaContrato, PersonaFila } from "@/lib/contratos";
 
 function json(obj: unknown) {
   return new Response(JSON.stringify(obj), {
@@ -15,23 +16,59 @@ function numero(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Parsea una fecha de una celda (Date de Excel, ISO, o dd/mm/aaaa). */
-function fecha(v: unknown): Date | null {
-  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
-  const s = String(v ?? "").trim();
-  if (!s) return null;
-  const dmy = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/);
-  if (dmy) {
-    const [, d, m, y] = dmy;
-    const year = y.length === 2 ? 2000 + Number(y) : Number(y);
-    const dt = new Date(year, Number(m) - 1, Number(d));
-    return isNaN(dt.getTime()) ? null : dt;
+/** Parsea una fecha de celda (Date de Excel, ISO, o dd/mm/aaaa) → ISO date. */
+function fechaISO(v: unknown): string | null {
+  let d: Date | null = null;
+  if (v instanceof Date) d = isNaN(v.getTime()) ? null : v;
+  else {
+    const s = String(v ?? "").trim();
+    if (s) {
+      const dmy = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/);
+      if (dmy) {
+        const [, dd, mm, yy] = dmy;
+        const year = yy.length === 2 ? 2000 + Number(yy) : Number(yy);
+        const dt = new Date(year, Number(mm) - 1, Number(dd));
+        d = isNaN(dt.getTime()) ? null : dt;
+      } else {
+        const dt = new Date(s);
+        d = isNaN(dt.getTime()) ? null : dt;
+      }
+    }
   }
-  const dt = new Date(s);
-  return isNaN(dt.getTime()) ? null : dt;
+  return d ? d.toISOString().slice(0, 10) : null;
 }
 
-// Rango sano del canon mensual (COP). Fuera de esto, se pide revisar.
+/** Clasifica un encabezado del Excel a una llave lógica. */
+function keyFor(h: string): string | null {
+  const v = h.toLowerCase().trim();
+  for (const [needle, pre] of [
+    ["inquilino", "inq"],
+    ["codeudor 1", "c1"],
+    ["codeudor 2", "c2"],
+    ["codeudor 3", "c3"],
+  ] as const) {
+    if (v.includes(needle)) {
+      if (v.includes("nombre")) return `${pre}_nombre`;
+      if (v.includes("tipo")) return `${pre}_tipo`;
+      if (v.includes("documento")) return `${pre}_doc`;
+      if (v.includes("celular")) return `${pre}_cel`;
+      if (v.includes("correo")) return `${pre}_correo`;
+      return null;
+    }
+  }
+  if (v.includes("contrato")) return "no_contrato";
+  if (v.includes("fecha") && v.includes("inicio")) return "fecha_inicio";
+  if (v.includes("fecha") && v.includes("fin")) return "fecha_fin";
+  if (v.includes("tipo") && v.includes("destino")) return "tipo_destino";
+  if (v.includes("meses")) return "meses";
+  if (v.includes("ciudad")) return "ciudad";
+  if (v.includes("direcci")) return "direccion";
+  if (v.includes("canon")) return "canon";
+  if (v.includes("administ")) return "admin";
+  if (v === "iva") return "iva";
+  return null;
+}
+
 const CANON_MIN = 200_000;
 const CANON_MAX = 100_000_000;
 
@@ -69,24 +106,34 @@ export async function POST(request: Request) {
   }
   if (!ws) return json({ ok: false, errores: ["El archivo no tiene hojas."] });
 
-  // Ubicar columnas por su encabezado.
-  const col = { doc: -1, canon: -1, fini: -1, ffin: -1, destino: -1, direccion: -1 };
+  // Mapa encabezado → columna.
+  const col: Record<string, number> = {};
   ws.getRow(1).eachCell((cell, c) => {
-    const v = String(cell.value ?? "").toLowerCase();
-    if (v.includes("inquilino") && v.includes("documento")) col.doc = c;
-    else if (v.includes("canon")) col.canon = c;
-    else if (v.includes("fecha") && v.includes("inicio")) col.fini = c;
-    else if (v.includes("fecha") && v.includes("fin")) col.ffin = c;
-    else if (v.includes("tipo") && v.includes("destino")) col.destino = c;
-    else if (v.includes("direcci")) col.direccion = c;
+    const k = keyFor(String(cell.value ?? ""));
+    if (k) col[k] = c;
   });
-  if (col.doc < 0) {
+  if (col.inq_doc == null) {
     return json({
       ok: false,
       errores: ["No encontré la columna 'Inquilino · Documento'. ¿Usaste la plantilla que te dimos?"],
     });
   }
 
+  const txt = (row: ExcelJS.Row, key: string) =>
+    col[key] != null ? String(row.getCell(col[key]).value ?? "").trim() : "";
+  const num = (row: ExcelJS.Row, key: string) => (col[key] != null ? numero(row.getCell(col[key]).value) : 0);
+
+  function personaDe(row: ExcelJS.Row, pre: string): PersonaFila {
+    return {
+      nombre: txt(row, `${pre}_nombre`),
+      tipo: txt(row, `${pre}_tipo`) || "CC",
+      doc: txt(row, `${pre}_doc`),
+      cel: txt(row, `${pre}_cel`),
+      correo: txt(row, `${pre}_correo`),
+    };
+  }
+
+  const filas: FilaContrato[] = [];
   const subidos = new Set<string>();
   const duplicados = new Set<string>();
   const sinCanon: string[] = [];
@@ -100,38 +147,51 @@ export async function POST(request: Request) {
 
   ws.eachRow((row, n) => {
     if (n === 1) return;
-    const doc = String(row.getCell(col.doc).value ?? "").trim();
+    const doc = txt(row, "inq_doc");
     if (!doc) return;
     if (subidos.has(doc)) duplicados.add(doc);
     subidos.add(doc);
 
-    // Canon
-    const canon = col.canon > 0 ? numero(row.getCell(col.canon).value) : 0;
+    const canon = num(row, "canon");
     if (canon <= 0) sinCanon.push(doc);
     else {
       valorTotal += canon;
       if (canon < CANON_MIN || canon > CANON_MAX) canonRaro.push(doc);
     }
 
-    // Tipo destino
-    if (col.destino > 0) {
-      const d = String(row.getCell(col.destino).value ?? "").trim().toLowerCase();
-      if (!d) sinDestino.push(doc);
-      else if (!d.startsWith("vivienda") && !d.startsWith("comercio")) destinoInvalido.push(doc);
+    const destino = txt(row, "tipo_destino").toLowerCase();
+    if (col.tipo_destino != null) {
+      if (!destino) sinDestino.push(doc);
+      else if (!destino.startsWith("vivienda") && !destino.startsWith("comercio")) destinoInvalido.push(doc);
     }
 
-    // Dirección
-    if (col.direccion > 0 && !String(row.getCell(col.direccion).value ?? "").trim()) {
-      sinDireccion.push(doc);
-    }
+    if (col.direccion != null && !txt(row, "direccion")) sinDireccion.push(doc);
 
-    // Fechas del contrato
-    if (col.fini > 0 && col.ffin > 0) {
-      const fi = fecha(row.getCell(col.fini).value);
-      const ff = fecha(row.getCell(col.ffin).value);
+    const fi = fechaISO(col.fecha_inicio != null ? row.getCell(col.fecha_inicio).value : null);
+    const ff = fechaISO(col.fecha_fin != null ? row.getCell(col.fecha_fin).value : null);
+    if (col.fecha_inicio != null && col.fecha_fin != null) {
       if (!fi || !ff) sinFechas.push(doc);
-      else if (ff.getTime() <= fi.getTime()) fechasIncoherentes.push(doc);
+      else if (new Date(ff).getTime() <= new Date(fi).getTime()) fechasIncoherentes.push(doc);
     }
+
+    const codeudores = ["c1", "c2", "c3"]
+      .map((p) => personaDe(row, p))
+      .filter((c) => c.doc); // solo codeudores con documento
+
+    filas.push({
+      no_contrato: txt(row, "no_contrato"),
+      fecha_inicio: fi,
+      fecha_fin: ff,
+      tipo_destino: destino.startsWith("comercio") ? "COMERCIO" : "VIVIENDA",
+      meses: num(row, "meses"),
+      ciudad: txt(row, "ciudad"),
+      direccion: txt(row, "direccion"),
+      canon,
+      admin: num(row, "admin"),
+      iva: num(row, "iva"),
+      inquilino: personaDe(row, "inq"),
+      codeudores,
+    });
   });
 
   // Validación (contraste).
@@ -147,8 +207,6 @@ export async function POST(request: Request) {
     errores.push(`Hay ${extras.length} documento(s) que no estaban en tu selección: ${lista(extras)}`);
   }
   if (duplicados.size) {
-    // Solo el inquilino no puede repetirse; los codeudores sí pueden aparecer
-    // varias veces (una persona puede ser codeudor de varios contratos).
     errores.push(
       `Hay inquilino(s) repetido(s) en el archivo (cada arrendatario va una sola vez; los codeudores sí pueden repetirse): ${lista([...duplicados])}`,
     );
@@ -168,7 +226,6 @@ export async function POST(request: Request) {
   if (subidos.size === 0) errores.push("El Excel no tiene filas de inquilinos con documento.");
 
   if (errores.length) {
-    // Registra el rebote para que el backoffice lo vea y pueda ayudar al cliente.
     await supabase
       .from("radicacion")
       .update({
@@ -179,7 +236,7 @@ export async function POST(request: Request) {
     return json({ ok: false, errores });
   }
 
-  // Válido → guardar el Excel en la carpeta de la radicación + avanzar etapa.
+  // Válido → guardar el Excel en Drive + persistir el detalle + avanzar etapa.
   let excelKey: string | null = null;
   try {
     const folder = await carpetaRadicacion(supabase, radicacionId);
@@ -203,7 +260,8 @@ export async function POST(request: Request) {
       valor_asegurado: Math.round(valorTotal),
       num_clientes: subidos.size,
       excel_key: excelKey,
-      ultimo_error: null, // pasó la validación → limpia el rebote anterior
+      detalle: filas,
+      ultimo_error: null,
       ultimo_error_at: null,
       updated_at: new Date().toISOString(),
     })

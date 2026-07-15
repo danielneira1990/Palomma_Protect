@@ -4,6 +4,7 @@ import { getSupabase } from "@/lib/supabase/server";
 import { enviarCorreo, destinatarios } from "@/lib/email/client";
 import { correoCancelacion, correoIngreso } from "@/lib/email/proceso";
 import { ingresaEsteMes } from "@/lib/radicacion";
+import { materializarContratos } from "@/lib/contratos";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -96,6 +97,13 @@ export async function ingresarRadicacion(id: string) {
       .update({ estado_ingreso: "INGRESADO", fecha_ingreso: now })
       .eq("id_radicacion", id);
     await supabase.from("radicacion").update({ etapa: "INGRESADA", updated_at: now }).eq("id", id);
+    // Materializa los contratos de fianza (arrendatario + codeudores) desde el
+    // detalle del Excel. Idempotente: si falla, se puede reintentar.
+    try {
+      await materializarContratos(supabase, id);
+    } catch (e) {
+      console.error("No se pudieron materializar los contratos:", e);
+    }
   } else {
     await supabase
       .from("radicacion")

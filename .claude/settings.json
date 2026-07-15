@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node _check.mjs)",
+      "Bash(rm -f _check.mjs)",
+      "Bash(node _backfill.mjs)",
+      "Bash(rm -f _backfill.mjs)"
+    ]
+  }
+}
