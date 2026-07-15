@@ -4,7 +4,13 @@
       "Bash(node _check.mjs)",
       "Bash(rm -f _check.mjs)",
       "Bash(node _backfill.mjs)",
-      "Bash(rm -f _backfill.mjs)"
+      "Bash(rm -f _backfill.mjs)",
+      "Bash(node _reset_induccion.mjs)",
+      "Bash(rm -f _reset_induccion.mjs)",
+      "mcp__claude_ai_Google_Drive__get_file_metadata",
+      "Bash(node _drive_orphans.mjs)",
+      "Bash(node _drive_orphans.mjs apply)",
+      "Bash(rm -f _drive_orphans.mjs)"
     ]
   }
 }

@@ -34,6 +34,30 @@ function titulo(n: string | null): string {
 export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipcPct: string }) {
   const router = useRouter();
   const [modal, setModal] = useState<{ tipo: "retiro" | "aumento"; c: ContratoPortalRow } | null>(null);
+  const [descId, setDescId] = useState<string | null>(null);
+
+  async function descargarCertificado(c: ContratoPortalRow) {
+    setDescId(c.id);
+    try {
+      const res = await fetch("/inmobiliaria/contratos/certificado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contratoId: c.id }),
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Certificado_${c.codigo ?? "fianza"}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* noop */
+    } finally {
+      setDescId(null);
+    }
+  }
 
   return (
     <>
@@ -84,23 +108,39 @@ export function ContratosView({ rows, ipcPct }: { rows: ContratoPortalRow[]; ipc
                         )}
                       </td>
                       <td>
-                        {r.estado === "ACTIVO" && !r.retiro_en_tramite && (
-                          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                            <button
-                              className="btn btn-outline btn-sm"
-                              onClick={() => setModal({ tipo: "aumento", c: r })}
-                            >
-                              Aumentar canon
-                            </button>
-                            <button
-                              className="btn btn-outline btn-sm"
-                              style={{ color: "var(--danger)", borderColor: "#f1d4d4" }}
-                              onClick={() => setModal({ tipo: "retiro", c: r })}
-                            >
-                              Retirar
-                            </button>
-                          </div>
-                        )}
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 6,
+                            justifyContent: "flex-end",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <button
+                            className="btn btn-outline btn-sm"
+                            disabled={descId === r.id}
+                            onClick={() => descargarCertificado(r)}
+                          >
+                            {descId === r.id ? "…" : "📄 Certificado"}
+                          </button>
+                          {r.estado === "ACTIVO" && !r.retiro_en_tramite && (
+                            <>
+                              <button
+                                className="btn btn-outline btn-sm"
+                                onClick={() => setModal({ tipo: "aumento", c: r })}
+                              >
+                                Aumentar canon
+                              </button>
+                              <button
+                                className="btn btn-outline btn-sm"
+                                style={{ color: "var(--danger)", borderColor: "#f1d4d4" }}
+                                onClick={() => setModal({ tipo: "retiro", c: r })}
+                              >
+                                Retirar
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
