@@ -19,6 +19,7 @@ export type DatosCertificado = {
   valorAfianzadoIntegral: number;
   fechaInicioContrato: string | null;
   fechaInicioFianza: string | null;
+  fechaContratoMarco: string | null;
   deudoresSolidarios: string;
 };
 
@@ -52,11 +53,13 @@ export async function generarCertificadoFianza(data: DatosCertificado): Promise<
       "{{ID_INMOBILIARIA}}": data.codigoInmobiliaria,
       "{{ID_SOLICITUD_FIANZA}}": data.numeroCertificado,
       "{{NUMERO_CONTRATO_MARCO}}": data.numContratoMarco,
-      "{{FECHA_CONTRATO_MARCO}}": "—",
+      "{{FECHA_CONTRATO_MARCO}}": fecha(data.fechaContratoMarco),
       "{{NOMBRE_ARRENDATARIO}}": data.nombreArrendatario,
       "{{IDENTIFICACION_ARRENDATARIO}}": data.documentoArrendatario,
-      "{{NOMBRE_PROPIETARIO}}": "—",
-      "{{IDENTIFICACION_PROPIETARIO}}": "—",
+      // La inmobiliaria contrata la fianza como mandataria del propietario, así
+      // que no se requiere el nombre del propietario (ver contrato marco).
+      "{{NOMBRE_PROPIETARIO}}": `${data.razonSocial} · mandataria`,
+      "{{IDENTIFICACION_PROPIETARIO}}": data.nitInmobiliaria ? `NIT ${data.nitInmobiliaria}` : "—",
       "{{NOMBRE_DEUDORES_SOLIDARIOS}}": data.deudoresSolidarios || "—",
       "{{DIRECCION_INMUEBLE}}": data.direccionInmueble,
       "{{CIUDAD_INMUEBLE}}": data.ciudadInmueble || "—",

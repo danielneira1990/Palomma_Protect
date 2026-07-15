@@ -17,6 +17,7 @@ type ContratoCert = {
     nit: string | null;
     codigo: string | null;
     num_contrato_marco: string | null;
+    created_at: string | null;
   } | null;
   estudio: { persona: { nombre: string | null; documento: string | null } | null } | null;
   contrato_persona: { rol: string | null; persona: { nombre: string | null } | null }[];
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   const { data } = await supabase
     .from("contrato")
     .select(
-      "codigo, num_contrato_arr, inmueble_direccion, inmueble_ciudad, canon, valor_afianzado_canon, tasa_canon, valor_afianzado_integral, fecha_inicio, fecha_ingreso, inmobiliaria(razon_social, nit, codigo, num_contrato_marco), estudio(persona(nombre, documento)), contrato_persona(rol, persona(nombre))",
+      "codigo, num_contrato_arr, inmueble_direccion, inmueble_ciudad, canon, valor_afianzado_canon, tasa_canon, valor_afianzado_integral, fecha_inicio, fecha_ingreso, inmobiliaria(razon_social, nit, codigo, num_contrato_marco, created_at), estudio(persona(nombre, documento)), contrato_persona(rol, persona(nombre))",
     )
     .eq("id", contratoId)
     .single();
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
     valorAfianzadoIntegral: c.valor_afianzado_integral ?? 0,
     fechaInicioContrato: c.fecha_inicio,
     fechaInicioFianza: c.fecha_ingreso,
+    fechaContratoMarco: c.inmobiliaria?.created_at ?? null,
     deudoresSolidarios: deudores.join(", "),
   });
 
