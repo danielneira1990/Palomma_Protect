@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { tasaFianzaInmo, AMPARO_INTEGRAL_CORTESIA } from "@/lib/radicacion";
+import { crearNovedadesIngreso } from "@/lib/novedades";
 
 export type PersonaFila = {
   nombre: string;
@@ -72,7 +73,7 @@ export async function materializarContratos(
 
   const { data: inmo } = await supabase
     .from("inmobiliaria")
-    .select("sucursal, tasa_canon")
+    .select("razon_social, sucursal, tasa_canon")
     .eq("id", rad.id_inmobiliaria)
     .single();
   const tasa = tasaFianzaInmo({ tasa_canon: inmo?.tasa_canon ?? null, sucursal: inmo?.sucursal ?? null });
@@ -109,6 +110,7 @@ export async function materializarContratos(
   let seq = count ?? 0;
   const hoy = new Date().toISOString().slice(0, 10);
 
+  const creadosContratos: { id: string; id_inmobiliaria: string }[] = [];
   let creados = 0;
   for (const f of filas) {
     const ref = porDoc.get(f.inquilino.doc);
@@ -167,8 +169,16 @@ export async function materializarContratos(
         .from("contrato_persona")
         .insert(personas.map((p) => ({ id_contrato: contrato.id, ...p })));
     }
+    creadosContratos.push({ id: contrato.id, id_inmobiliaria: rad.id_inmobiliaria });
     creados++;
   }
+
+  // Deja la novedad de INGRESO por cada contrato que entró.
+  await crearNovedadesIngreso(
+    supabase,
+    creadosContratos,
+    `Inmobiliaria ${inmo?.razon_social ?? ""}`.trim(),
+  );
 
   return creados;
 }
